@@ -1,0 +1,17 @@
+{
+  "name": "kkamagwi-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "까마귀봇: 롤 5:5 내전 참가자 로테이션 디스코드 봇",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/bot.js",
+    "register": "node src/register.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.2.3"
+  }
+}
