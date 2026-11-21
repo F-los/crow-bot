@@ -65,7 +65,7 @@ async function startAndReport(interaction,session){
   const {selected,roster}=beginGame(session);
   const note=await safeRefresh(session);
   await interaction.editReply(`🎮 **${session.round}판 시작!** 시청자 ${selected.length}명 선발 · 스트리머 필참.\n`
-    +`기존 ${roster.filter(r=>r.wasRegistered).length}명 / 이번 판 등록 처리 ${roster.filter(r=>!r.wasRegistered&&!r.missing).length}명 · 프로필 미등록 ${roster.filter(r=>r.missing).length}명.\n`
+    +`기존 ${roster.filter(r=>r.wasRegistered).length}명 / 이번 판 등록 처리 ${roster.filter(r=>!r.wasRegistered).length}명.\n`
     +`명단과 판수는 기존 모집판의 「확정 참가자 정보」에 표시됩니다. 새 메시지는 생성하지 않습니다.${note}`);
 }
 async function handleProfileCommand(i){
