@@ -31,10 +31,11 @@
 
 ```bash
 npm install
-npm run register
 npm test
 npm start
 ```
+
+`npm start` 시 DISCORD_CLIENT_ID와 DISCORD_GUILD_ID가 있으면 새 슬래시 명령어를 자동으로 갱신합니다. 환경변수가 없거나 등록에 실패한 경우에는 `npm run register`로 수동 등록해야 합니다.
 
 `.env`에는 기존대로 `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`를 설정합니다.
 
