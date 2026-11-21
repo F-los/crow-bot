@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { GAME_SIZE, isGameRunning, priorityPlayers } from './rotation.js';
 import { getProfile } from './profiles.js';
-import { buildRoster, previewRosterLines } from './roster.js';
+import { rosterForBoard, previewRosterLines } from './roster.js';
 
 function showPlayers(players,count=16){
   if(!players.length)return '없음';
@@ -10,7 +10,7 @@ function showPlayers(players,count=16){
   return lines.join('\n').slice(0,1020);
 }
 function rosterFields(session,players,playing){
-  const roster=buildRoster(session,players,getProfile);
+  const roster=rosterForBoard(session,players,playing,getProfile);
   const lines=previewRosterLines(roster);
   // Discord Embed 단일 field 1024자 제한: 최대 5명/4명으로 분리하여 모두 출력한다.
   const title=playing?'🎮 확정 참가자 정보 (현재 경기 포함 판수)':'📋 다음 판 예상 명단 (현재까지 참여 판수)';

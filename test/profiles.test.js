@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateProfile,rankLabel,preferredLanes} from '../src/profile-utils.js';
-import {buildRoster,rosterMessages} from '../src/roster.js';
+import {buildRoster,rosterMessages,rosterForBoard,rosterLine} from '../src/roster.js';
 
 const base={riotId:'까마귀#KR1',currentTier:'EMERALD',currentDivision:'2',peakTier:'MASTER',peakLp:230,lanes:['MID','TOP']};
 test('Riot ID 단일 입력, 티어 및 선호 라인 검증',()=>{
@@ -23,5 +23,19 @@ test('9명 명단에서 현재/최고/라인과 참여 판수 및 시작 전 신
   assert.equal(roster.length,9);
   assert.match(msg,/기존 등록 \(1명\)/);
   assert.match(msg,/이번 판 신규 등록 처리 \(8명\)/);
-  assert.match(msg,/까마귀#KR1 \/ 에메랄드 2 \/ 마스터 230LP \/ 미드, 탑 · 1판/);
+  assert.match(msg,/<@u0> \/ 까마귀#KR1 \/ 에메랄드 2 \/ 마스터 230LP \/ 미드, 탑 · 1판/);
+});
+
+test('확정 명단에 멘션 / Riot ID / 현재 / 최고 / 라인 / 참여 판수',()=>{
+  const p={id:'123456789012345678',order:2,riotId:'김오루#KR1',current:'골드 2',peak:'플래티넘 1',lanes:'미드, 정글',count:3};
+  assert.equal(rosterLine(p),'2. <@123456789012345678> / 김오루#KR1 / 골드 2 / 플래티넘 1 / 미드, 정글 · 3판');
+  assert.match(rosterLine({...p,riotId:null}),/프로필 미등록/);
+});
+test('게임 중 등록 상태 변경이 있어도 확정 명단 스냅샷을 보존',()=>{
+  const player={id:'u1',matchesPlayed:1};
+  const snapshot={id:'u1',order:1,riotId:'김오루#KR1',current:'골드 2',peak:'플래티넘 1',lanes:'미드',count:1,wasRegistered:false,missing:false};
+  const session={guildId:'g',round:1,rounds:[{round:1,roster:[snapshot]}]};
+  const getProfile=()=>({...base,onnjRegistered:true});
+  assert.deepEqual(rosterForBoard(session,[player],true,getProfile),[snapshot]);
+  assert.equal(rosterForBoard(session,[player],false,getProfile)[0].wasRegistered,true);
 });
