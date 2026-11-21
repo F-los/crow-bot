@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateProfile,rankLabel,preferredLanes} from '../src/profile-utils.js';
-import {buildRoster,previewRosterLines,rosterForBoard,rosterLine} from '../src/roster.js';
+import {buildRoster,previewRosterLines,rosterForBoard,rosterLine,sortConfirmedRoster} from '../src/roster.js';
 
 const base={riotId:'까마귀#KR1',currentTier:'EMERALD',currentDivision:'2',peakTier:'MASTER',peakLp:230,lanes:['MID','TOP']};
 test('Riot ID 단일 입력, 티어 및 선호 라인 검증',()=>{
@@ -39,4 +39,31 @@ test('게임 중 등록 상태 변경이 있어도 확정 명단 스냅샷을 �
   const getProfile=()=>({...base,onnjRegistered:true});
   assert.deepEqual(rosterForBoard(session,[player],true,getProfile),[snapshot]);
   assert.equal(rosterForBoard(session,[player],false,getProfile)[0].wasRegistered,true);
+});
+
+test('확정 명단은 신규 먼저 기존 다음, 같은 그룹 안에서는 선발 순서 유지',()=>{
+  const players=[
+    {id:'old1',order:1,wasRegistered:true,count:1},
+    {id:'new1',order:2,wasRegistered:false,count:2},
+    {id:'old2',order:3,wasRegistered:true,count:3},
+    {id:'new2',order:4,wasRegistered:false,count:4},
+    {id:'new3',order:5,wasRegistered:false,count:5},
+  ];
+  const session={guildId:'g',round:2,rounds:[{round:2,roster:players}]};
+  const sorted=rosterForBoard(session,[],true,()=>{throw new Error('스냅샷을 우선 사용해야 함');});
+  assert.deepEqual(sorted.map(p=>p.id),['new1','new2','new3','old1','old2']);
+  assert.deepEqual(sorted.map(p=>p.order),[1,2,3,4,5]);
+  assert.deepEqual(sorted.map(p=>p.count),[2,4,5,1,3]);
+  assert.deepEqual(players.map(p=>p.id),['old1','new1','old2','new2','new3']);
+  assert.deepEqual(players.map(p=>p.order),[1,2,3,4,5]);
+  assert.match(previewRosterLines(sorted).join('\n'),/1\. <@new1>.*🆕신규/);
+});
+
+test('시작 전 예상 명단은 기존 대기열 정렬, 확정 화면에만 신규 우선 정렬',()=>{
+  const players=[{id:'old',matchesPlayed:3},{id:'new',matchesPlayed:0}];
+  const session={guildId:'g',round:0,rounds:[]};
+  const getProfile=(_,id)=>({...base,onnjRegistered:id==='old'});
+  assert.deepEqual(rosterForBoard(session,players,false,getProfile).map(p=>p.id),['old','new']);
+  assert.deepEqual(rosterForBoard(session,players,true,getProfile).map(p=>p.id),['new','old']);
+  assert.deepEqual(sortConfirmedRoster([]),[]);
 });
