@@ -19,11 +19,20 @@ export function previewRosterLines(roster) {
   return roster.map(p=>`${rosterLine(p)} ${p.missing?'⚠️등록 확인 필요':p.wasRegistered?'✅기존':'🆕신규'}`);
 }
 
-/** 게임 진행 중에는 시작 당시의 신규/기존·판수 스냅샷을 유지한다. */
+/** 확정 명단 화면만 신규 → 기존으로 묶는다. 저장된 선발 순서는 변경하지 않는다. */
+export function sortConfirmedRoster(roster) {
+  return roster
+    .map((player, index) => ({player, index}))
+    .sort((a, b) => Number(a.player.wasRegistered) - Number(b.player.wasRegistered) || a.index - b.index)
+    .map(({player}, index) => ({...player, order:index+1}));
+}
+
+/** 게임 중에는 시작 당시의 신규/기존 상태를 유지하고 화면에서만 재정렬한다. */
 export function rosterForBoard(session, players, playing, getProfile) {
   if (playing) {
     const snapshot=session.rounds?.findLast(r=>r.round===session.round)?.roster;
-    if (Array.isArray(snapshot)) return snapshot;
+    if (Array.isArray(snapshot)) return sortConfirmedRoster(snapshot);
   }
-  return buildRoster(session,players,getProfile);
+  const roster=buildRoster(session,players,getProfile);
+  return playing ? sortConfirmedRoster(roster) : roster;
 }
