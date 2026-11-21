@@ -11,8 +11,9 @@ export function buildRoster(session, selected, getProfile) {
   });
 }
 export function rosterLine(p) {
-  const name=safeDiscordText(p.riotId??`<@${p.id}> (프로필 미등록)`);
-  return `${p.order}. ${name} / ${p.current} / ${p.peak} / ${p.lanes} · ${p.count}판`;
+  // 디스코드 멘션과 Riot ID는 분리하여 안전하게 출력한다.
+  const name=p.riotId?safeDiscordText(p.riotId):'(프로필 미등록)';
+  return `${p.order}. <@${p.id}> / ${name} / ${p.current} / ${p.peak} / ${p.lanes} · ${p.count}판`;
 }
 export function rosterMessages(session, roster) {
   const old=roster.filter(r=>r.wasRegistered);
@@ -32,4 +33,13 @@ export function rosterMessages(session, roster) {
 }
 export function previewRosterLines(roster) {
   return roster.map(p=>`${rosterLine(p)} ${p.wasRegistered?'✅기존':p.missing?'⚠️프로필없음':'🆕미등록'}`);
+}
+
+/** 게임 진행 중에는 시작 당시의 신규/기존·판수 스냅샷을 유지한다. */
+export function rosterForBoard(session, players, playing, getProfile) {
+  if (playing) {
+    const snapshot=session.rounds?.findLast(r=>r.round===session.round)?.roster;
+    if (Array.isArray(snapshot)) return snapshot;
+  }
+  return buildRoster(session,players,getProfile);
 }
