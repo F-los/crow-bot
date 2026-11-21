@@ -17,10 +17,30 @@ test('DB 오류 발생 시 판수와 경기 진행 상태 롤백',()=>{
   assert.equal(s.round,0);assert.equal(s.phase,'waiting');assert.equal(s.players.id0.matchesPlayed,0);
   assert.equal(saved,2);
 });
-test('실제 모드에서 프로필 없는 사람은 선발 차단, 테스트모드 허용',()=>{
-  const s=setup();
-  assert.throws(()=>beginGame(s,{getProfile:()=>null,persist:()=>{},markOnnjRegistered:()=>{}}),/프로필 미등록/);
-  assert.equal(s.round,0);s.testMode=true;
-  const r=beginGame(s,{getProfile:()=>null,persist:()=>{},markOnnjRegistered:()=>{}});
-  assert.equal(r.roster.filter(x=>x.missing).length,9);
+test('일반 모드와 테스트 모드 모두 프로필 없으면 시작 차단하고 판수 유지',()=>{
+  for(const testMode of [false,true]){
+    const s=setup();s.testMode=testMode;
+    let saves=0,marked=0;
+    assert.throws(()=>beginGame(s,{getProfile:(_,id)=>id==='id2'?null:form,
+      persist:()=>saves++,markOnnjRegistered:()=>marked++}),/내전등록/);
+    assert.equal(s.round,0);assert.equal(s.phase,'waiting');
+    assert.equal(s.players.id2.matchesPlayed,0);assert.equal(saves,0);assert.equal(marked,0);
+  }
+});
+test('테스트 모드 9명 미만 + 모두 프로필 등록 시 정상 시작',()=>{
+  const s=makeSession('g','c','s');s.testMode=true;
+  joinSession(s,'registered','등록된 유저');
+  const r=beginGame(s,{getProfile:()=>form,persist:()=>{},markOnnjRegistered:()=>{}});
+  assert.equal(r.roster.length,1);assert.equal(s.round,1);
+  assert.equal(s.players.registered.matchesPlayed,1);
+  assert.equal(r.roster[0].missing,false);
+});
+test('기존 데이터에 프로필이 없는 참가자가 있으면 등록 후에만 시작 가능',()=>{
+  const s=setup();let missing=true;
+  const deps={getProfile:(_,id)=>missing&&id==='id0'?null:form,
+    persist:()=>{},markOnnjRegistered:()=>{}};
+  assert.throws(()=>beginGame(s,deps),/내전등록/);
+  missing=false;
+  const r=beginGame(s,deps);
+  assert.equal(r.selected.length,9);assert.equal(s.round,1);
 });
