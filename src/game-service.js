@@ -4,9 +4,10 @@ import { buildRoster } from './roster.js';
 /** 개별 저장소(JSON+SQLite) 일관성 유지: 시작 실패 시 판수/상태를 이전 값으로 되돌린다. */
 export function beginGame(session, {getProfile, persist, markOnnjRegistered}) {
   const waiting=priorityPlayers(session).slice(0,GAME_SIZE);
-  if(!session.testMode){
-    const unregistered=waiting.filter(p=>!getProfile(session.guildId,p.id));
-    if(unregistered.length)throw new Error(`프로필 미등록 참가자 ${unregistered.length}명이 있습니다. 내전등록 완료 후 시작해주세요.`);
+  // 테스트 모드는 인원 조건만 완화한다. 프로필은 모든 모드에서 필수다.
+  const unregistered=waiting.filter(p=>!getProfile(session.guildId,p.id));
+  if(unregistered.length){
+    throw new Error(`등록된 롤 프로필이 없는 참가자 ${unregistered.length}명이 있습니다. 해당 참가자는 /내전등록을 완료해야 게임을 시작할 수 있습니다.`);
   }
   const before=structuredClone(session);
   let persisted=false;
