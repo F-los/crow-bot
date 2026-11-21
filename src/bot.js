@@ -187,7 +187,15 @@ async function handleSelect(i){
     await i.update({content:`➕➖ <@${target}> · 현재 **${p.matchesPlayed}판**\n아래 버튼으로 조정해주세요.`,components:[adjustRow(s.id,target)],allowedMentions:{parse:[]}});return;
   }
 }
-client.once(Events.ClientReady,ready=>console.log(`🐦‍⬛ 까마귀봇 v3 로그인 완료: ${ready.user.tag}`));
+client.once(Events.ClientReady,async ready=>{
+  console.log(`🐦‍⬛ 까마귀봇 v3 로그인 완료: ${ready.user.tag}`);
+  if(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_GUILD_ID){
+    try{await import('./register.js');}
+    catch(error){console.error('새 슬래시 명령어 자동 등록 실패:',error);}
+  }else{
+    console.warn('DISCORD_CLIENT_ID / DISCORD_GUILD_ID가 없어 새 슬래시 명령어 등록을 건너뜁니다.');
+  }
+});
 client.on(Events.InteractionCreate,async(i)=>{
   const command=i.isChatInputCommand()&&['내전','내전등록','내전수정','내전정보'].includes(i.commandName);
   const button=i.isButton()&&i.customId.startsWith('crow:');
