@@ -11,7 +11,6 @@ import {
 import { getGuild,persist } from './store.js';
 import { renderBoard } from './render.js';
 import { getProfile,markOnnjRegistered,restoreOnnjStatuses } from './profiles.js';
-import { rosterMessages } from './roster.js';
 import { beginGame as beginGameSafe } from './game-service.js';
 import { beginRegistration,formatOwnProfile,handleRegistrationInteraction } from './registration.js';
 
@@ -61,22 +60,13 @@ function adjustRow(sessionId,userId){return new ActionRowBuilder().addComponents
 function beginGame(session){
   return beginGameSafe(session,{getProfile,persist,markOnnjRegistered});
 }
-async function publishRoster(session,roster){
-  const channel=await client.channels.fetch(session.channelId);
-  if(!channel?.isTextBased()||!('send' in channel))throw new Error('명단을 게시할 수 있는 채널이 아닙니다.');
-  for(const chunk of rosterMessages(session,roster)){
-    await channel.send({content:chunk,allowedMentions:{parse:[]}});
-  }
-}
+// 명단은 기존 모집판에 갱신한다. 새 글을 매 경기 생성하지 않는다.
 async function startAndReport(interaction,session){
   const {selected,roster}=beginGame(session);
   const note=await safeRefresh(session);
-  let postNote='';
-  try{await publishRoster(session,roster);}
-  catch(e){console.error('참가 명단 게시 실패:',e);postNote='\n⚠️ 명단 공개 게시에 실패했습니다. 모집판을 확인해주세요.';}
   await interaction.editReply(`🎮 **${session.round}판 시작!** 시청자 ${selected.length}명 선발 · 스트리머 필참.\n`
     +`기존 ${roster.filter(r=>r.wasRegistered).length}명 / 이번 판 등록 처리 ${roster.filter(r=>!r.wasRegistered&&!r.missing).length}명 · 프로필 미등록 ${roster.filter(r=>r.missing).length}명.\n`
-    +`참여 판수는 기존 로테이션 기준으로 이미 반영됐습니다.${note}${postNote}`);
+    +`명단과 판수는 기존 모집판의 「확정 참가자 정보」에 표시됩니다. 새 메시지는 생성하지 않습니다.${note}`);
 }
 async function handleProfileCommand(i){
   if(!i.guildId)throw new Error('디스코드 서버에서만 사용할 수 있습니다.');
