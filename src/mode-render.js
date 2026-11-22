@@ -7,7 +7,7 @@ function linesFor(session, players, limit=20) {
   if (!players.length) return '없음';
   const lines=players.slice(0,limit).map((p,i)=>{
     const profile=getProfile(session.guildId,p.id);
-    const riot=profile?.riotId?` · ${safeDiscordText(profile.riotId)}`:'';
+    const riot=profile?.riotId?` · ${safeDiscordText(profile.riotId)}`:' · ⚠️ 롤 프로필 미등록';
     const source=session.mode==='solo'?` · ${TICKET_SOURCES[p.source]||'듀오권'}`:'';
     const state=session.mode==='solo'?` · ${p.approval==='approved'?'✅ 승인':'🕓 확인 대기'}`:'';
     const played=session.mode==='flex'?` · ${flexRecords(session)[p.id]?.matchesPlayed??0}판`:'';
@@ -25,9 +25,11 @@ export function renderModeBoard(session) {
   const ready=eligibleModePlayers(session);
   const waiting=solo?session.waiting:priorityFlexPlayers(session);
   const intro=solo?[
+    '**롤 프로필 필수** · 최초 참가 시 자동 등록창이 열립니다. 기존 /내전등록 정보는 재사용됩니다.',
     '**듀오 1판 = 5,000원 후원 또는 룰렛 듀오권 1장**',
     '룰렛 듀오권의경우 **!사용권 듀오권** 명령어로 사용권을 먼저 등록해야 합니다.',
   ]:[
+    '**롤 프로필 필수** · 최초 참가 시 자동 등록창이 열립니다. 기존 /내전등록 정보는 재사용됩니다.',
     '**자랭 시참은 무료입니다.**',
     '🔄 **자랭 전용 판수 로테이션** · 참여 판수 적음 → 직전 판 미참여 → 오래 기다림',
     '내전 판수와 별개이며, 우선순위 상위 시청자 4명이 스트리머와 함께합니다.',

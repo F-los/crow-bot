@@ -13,7 +13,7 @@ import { renderBoard } from './render.js';
 import { getProfile,markOnnjRegistered,restoreOnnjStatuses } from './profiles.js';
 import { beginGame as beginGameSafe } from './game-service.js';
 import { beginRegistration,formatOwnProfile,handleRegistrationInteraction } from './registration.js';
-import {handleModeCommand,handleModeButton,handleModeSelect} from './mode-controller.js';
+import {handleModeCommand,handleModeButton,handleModeSelect,safeRefresh as safeRefreshMode} from './mode-controller.js';
 
 const {DISCORD_TOKEN}=process.env;
 if(!DISCORD_TOKEN) throw new Error('.env에 DISCORD_TOKEN을 설정하세요.');
@@ -202,8 +202,19 @@ client.on(Events.InteractionCreate,async(i)=>{
     else if(modeSelect)await handleModeSelect(i,client,requireAdmin);
     else if(registration){
       const result=await handleRegistrationInteraction(i);
-      if(result?.registered && result.sessionId){const s=getGuild(result.guildId).active;
-        if(s?.id===result.sessionId)await safeRefresh(s);}
+      if(result?.registered){
+        const guild=getGuild(result.guildId);
+        if(result.sessionId && !result.mode && guild.active?.id===result.sessionId)
+          await safeRefresh(guild.active);
+        // 기존 모집에 대기 중이던 사용자가 /내전등록으로 등록한 경우도 반영.
+        for(const session of Object.values(guild.modeQueues??{})){
+          if(session?.status!=='open')continue;
+          const target=session.id===result.sessionId && session.mode===result.mode;
+          const present=session.waiting.some(p=>p.id===result.userId)
+            ||session.current.some(p=>p.id===result.userId);
+          if(target||present)await safeRefreshMode(session,client);
+        }
+      }
     }else if(command){if(i.commandName==='내전')await handleCommand(i);else await handleProfileCommand(i);}
     else if(button)await handleButton(i);
     else await handleSelect(i);
