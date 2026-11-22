@@ -1,9 +1,9 @@
 {
   "name": "kkamagwi-bot",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "private": true,
   "type": "module",
-  "description": "까마귀봇 v4.4: 종합게임 선착순 참가 모집 및 기존 롤 모드",
+  "description": "까마귀봇 v4.4.1: 종합게임 관리자 명단 확정과 기존 롤 모드",
   "engines": {
     "node": ">=22.13"
   },
