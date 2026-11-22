@@ -8,6 +8,7 @@ import {
   createGeneralSession,orderedGeneralApplicants,generalGroups,generalPosition,
   joinGeneralSession,editGeneralApplicant,leaveGeneralSession,closeGeneralSession,
   confirmGeneralSession,unconfirmGeneralSession,nextGeneralRotation,rotationMatches,
+  savedGeneralInfo,joinSavedGeneralSession,editSavedGeneralInfo,
 } from './general-queue.js';
 import {renderGeneralBoard} from './general-render.js';
 import {safeDiscordText} from './profile-utils.js';
@@ -58,9 +59,10 @@ function userStatus(session,userId) {
     +'신청 순서 **'+position.position+'번째** · '+(position.confirmed?(session.status==='confirmed'?'✅ 명단 확정':'📋 선착순 우선 배정'):'⏳ 대기 '+(position.position-generalGroups(session).confirmed.length)+'순위');
 }
 function modalFor(session,userId,edit) {
-  const existing=session.applicants.find(p=>p.id===userId);
+  const applicant=session.applicants.find(p=>p.id===userId);
+  const existing=applicant??(edit?savedGeneralInfo(session,userId):null);
   if (edit && !existing) throw new Error('수정할 참가 신청 정보가 없습니다. 먼저 참가 신청해주세요.');
-  if (!edit && existing) throw new Error('이미 신청했습니다. 내 정보 수정 버튼을 사용해주세요.');
+  if (!edit && applicant) throw new Error('이미 신청했습니다. 내 정보 수정 버튼을 사용해주세요.');
   const nickname=new TextInputBuilder()
     .setCustomId('gameNickname').setLabel('게임 닉네임 (필수)')
     .setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(60).setRequired(true)
@@ -190,8 +192,24 @@ export async function handleGeneralButton(interaction,client,requireAdmin) {
   const session=currentSession(interaction);
   checkBoard(session,interaction,sid);
   if (['details','remove','confirm','unconfirm','next','close'].includes(action)) requireAdmin(interaction);
-  if (action==='join' || action==='edit') {
-    await interaction.showModal(modalFor(session,interaction.user.id,action==='edit'));
+  if (action==='join') {
+    if (session.applicants.some(p=>p.id===interaction.user.id)) {
+      throw new Error('이미 참가 신청 중입니다. 내 정보 수정 버튼을 이용해주세요.');
+    }
+    if (savedGeneralInfo(session,interaction.user.id)) {
+      // 재신청은 저장된 정보로 즉시 처리한다. 별도 모달/자동 대기 등록 동작은 없다.
+      await interaction.deferReply({flags:MessageFlags.Ephemeral});
+      joinSavedGeneralSession(session,interaction.user.id,displayName(interaction));
+      persist();
+      const note=await safeRefresh(session,client);
+      await interaction.editReply('✅ 저장된 게임 정보로 재신청 완료!\n'+userStatus(session,interaction.user.id)+note);
+      return;
+    }
+    await interaction.showModal(modalFor(session,interaction.user.id,false));
+    return;
+  }
+  if (action==='edit') {
+    await interaction.showModal(modalFor(session,interaction.user.id,true));
     return;
   }
   if (action==='remove') {
@@ -256,12 +274,16 @@ export async function handleGeneralModal(interaction,client) {
   if (action==='join') {
     joinGeneralSession(session,interaction.user.id,displayName(interaction),nickname,extra);
   } else {
-    editGeneralApplicant(session,interaction.user.id,displayName(interaction),nickname,extra);
+    editSavedGeneralInfo(session,interaction.user.id,displayName(interaction),nickname,extra);
   }
   persist();
   await interaction.deferReply({flags:MessageFlags.Ephemeral});
   const note=await safeRefresh(session,client);
-  await interaction.editReply((action==='join'?'✅ 참가 신청 완료!':'✅ 참가 정보 수정 완료!')+'\n'+userStatus(session,interaction.user.id)+note);
+  const active=session.applicants.some(p=>p.id===interaction.user.id);
+  const result=action==='join'?'✅ 참가 신청 완료!':active
+    ?'✅ 참가 정보와 저장 정보가 수정됐습니다!'
+    :'✅ 저장 정보 수정 완료! 재신청하려면 [참가 신청] 버튼을 눌러주세요.';
+  await interaction.editReply(result+(active?'\n'+userStatus(session,interaction.user.id):'')+note);
 }
 export async function handleGeneralSelect(interaction,client,requireAdmin) {
   if (!interaction.guildId) throw new Error('디스코드 서버에서만 사용 가능합니다.');
