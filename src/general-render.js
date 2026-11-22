@@ -32,7 +32,7 @@ export function renderGeneralBoard(session) {
       ? '이 모집은 종료되었습니다. 아래는 마지막 신청 명단입니다.'
       : locked
         ? '✅ **이번 로테이션 팀 확정!** 현재 참가자는 잠겨 있으며, 새로운 신청은 대기열에 추가됩니다. 관리자는 안내된 판수만큼 게임 후 [다음 로테이션]을 한 번 눌러주세요.'
-        : '게임 닉네임을 입력하여 참가 신청하세요. 추가 정보는 선택 사항입니다.\n**선착순 우선 배정**, 관리자 명단 확정 후 최종 참가자가 됩니다. 정원 초과 시 자동 대기합니다. 판수는 반영하지 않습니다.')
+        : '최초 참가 시 게임 닉네임(필수)과 추가 정보(선택)를 입력합니다. 다음 로테이션에서 제외된 뒤 다시 참가 신청하면 저장 정보로 즉시 재신청됩니다.\n**선착순 우선 배정**, 관리자 명단 확정 후 최종 참가자가 됩니다. 판수는 반영하지 않습니다.')
     .addFields(
       {name:'🎮 모집 현황',value:'정원 **'+session.capacity+'명** · '+(locked||closed&&session.confirmedAt?'확정':'우선')+' **'+confirmed.length+'명** · 대기 **'+waiting.length+'명**\n🔄 **'+rotationMatches(session)+'판씩 로테이션** (안내용 · 게임별 판수 체크 없음)'+(session.rotationIndex?'\n현재 **'+session.rotationIndex+'회차**':'')+'\n※ 정원은 시청자 신청 수이며 스트리머는 별도입니다.'},
       {name:(locked||closed&&session.confirmedAt?'✅ 확정 참가자':'📋 선착순 우선')+' ('+confirmed.length+'/'+session.capacity+')',value:rosterLines(confirmed)},
