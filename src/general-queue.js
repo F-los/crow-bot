@@ -163,18 +163,13 @@ export function nextGeneralRotation(session,now=Date.now()) {
   // 진행을 마친 확정 인원은 완전히 제외한다. 재참여하려면 새로 신청해야 한다.
   const completedIds=new Set(groups.confirmed.map(p=>p.id));
   session.applicants=session.applicants.filter(p=>!completedIds.has(p.id));
-  // 남아 있던 대기자만 기존 신청 순서대로 다음 팀에 편성한다.
+  // 남아 있던 대기자만 현재 회차의 '예상 참가자'로 보여준다.
+  // 자동 확정하지 않으므로 빈자리는 이후 신청자가 선착순으로 채운다.
   const next=orderedGeneralApplicants(session).slice(0,session.capacity);
-  session.currentIds=next.map(p=>p.id);
+  session.currentIds=[];
   session.rotationIndex=(session.rotationIndex||1)+1;
-  if (next.length) {
-    session.status='confirmed';
-    session.confirmedAt=now;
-  } else {
-    // 대기자가 없어도 기존 팀을 제외하고 다음 회차의 새 신청을 받을 수 있게 한다.
-    session.status='open';
-    session.confirmedAt=null;
-  }
+  session.status='open';
+  session.confirmedAt=null;
   return next;
 }
 export function closeGeneralSession(session,now=Date.now()) {
