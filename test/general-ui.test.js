@@ -33,7 +33,7 @@ test('명단 확정 버튼을 누른 뒤 확정 상태와 해제 버튼이 표�
   const s=createGeneralSession('g','c','id','배틀그라운드',1);
   joinGeneralSession(s,'1','첫째','게임닉1');
   let board=renderGeneralBoard(s);
-  assert.match(board.embeds[0].toJSON().description,/선착순 우선 배정/);
+  assert.match(board.embeds[0].toJSON().description,/예상 참가자 모집 중/);
   confirmGeneralSession(s);
   board=renderGeneralBoard(s);
   const embed=board.embeds[0].toJSON();
@@ -66,8 +66,11 @@ test('모집판은 안내용 판수와 로테이션 버튼을 표시하며 확�
   nextGeneralRotation(s);
   board=renderGeneralBoard(s);
   assert.match(board.embeds[0].toJSON().fields[0].value,/현재 \*\*2회차\*\*/);
+  assert.match(board.embeds[0].toJSON().fields[1].name,/예상 참가자/);
   assert.match(board.embeds[0].toJSON().fields[1].value,/닉3/);
   assert.doesNotMatch(board.embeds[0].toJSON().fields[1].value,/닉2/);
+  assert.equal(board.components[1].components[2].data.label,'명단 확정');
+  assert.equal(board.components[1].components[3].data.disabled,true);
 });
 
 test('대기자가 0명이어도 다음 로테이션 버튼으로 이전 팀을 제외하고 새 모집을 연다',()=>{
@@ -142,4 +145,21 @@ test('Discord 참가 버튼은 최초에만 모달을 열고 저장 정보로 �
     delete state.guilds[guildId];
     persist();
   }
+});
+
+test('다음 로테이션 후 1~2명 예상 참가자는 새 신청으로 채워지고 이후 명단 확정한다',()=>{
+  const s=createGeneralSession('g','c','id','배틀그라운드',3,2);
+  for(let i=1;i<=5;i++)joinGeneralSession(s,''+i,'사용자'+i,'닉'+i);
+  confirmGeneralSession(s);
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['4','5']);
+  let board=renderGeneralBoard(s);
+  assert.equal(board.embeds[0].toJSON().fields[1].name,'📋 예상 참가자 (2/3)');
+  assert.equal(board.components[1].components[2].data.disabled,false);
+  joinGeneralSession(s,'6','사용자6','닉6');
+  board=renderGeneralBoard(s);
+  assert.equal(board.embeds[0].toJSON().fields[1].name,'📋 예상 참가자 (3/3)');
+  assert.match(board.embeds[0].toJSON().fields[1].value,/닉6/);
+  confirmGeneralSession(s);
+  board=renderGeneralBoard(s);
+  assert.equal(board.embeds[0].toJSON().fields[1].name,'✅ 확정 참가자 (3/3)');
 });
