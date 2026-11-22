@@ -38,7 +38,16 @@ const flex=modeCommands('자랭','무료 자랭 시참: 스트리머+시청자 4
   .addSubcommand(s=>s.setName('판수변경').setDescription('자랭 전용 참여 판수 조정 (관리자)')
     .addUserOption(o=>o.setName('유저').setDescription('대기 중인 유저').setRequired(true))
     .addIntegerOption(o=>o.setName('증감').setDescription('예: +1 또는 -1').setRequired(true).setMinValue(-99).setMaxValue(99)));
-commands.push(solo,flex);
+const general = new SlashCommandBuilder().setName('종합게임').setDescription('종합게임 선착순 시참 모집 관리')
+  .addSubcommand(s=>s.setName('모집').setDescription('게임 이름·모집 인원으로 모집판 생성 (관리자)')
+    .addStringOption(o=>o.setName('게임').setDescription('게임 이름 (예: 배틀그라운드)').setRequired(true).setMinLength(1).setMaxLength(60))
+    .addIntegerOption(o=>o.setName('인원').setDescription('모집할 시청자 수 (1~100명, 스트리머 제외)').setRequired(true).setMinValue(1).setMaxValue(100)))
+  .addSubcommand(s=>s.setName('현황').setDescription('현재 게임 모집 인원과 대기열 확인'))
+  .addSubcommand(s=>s.setName('명단').setDescription('닉네임 및 추가 정보를 파일로 조회 (관리자)'))
+  .addSubcommand(s=>s.setName('제외').setDescription('참가자를 명단에서 제외 (관리자)')
+    .addUserOption(o=>o.setName('유저').setDescription('제외할 사용자').setRequired(true)))
+  .addSubcommand(s=>s.setName('종료').setDescription('종합게임 모집 종료·기록 보관 (관리자)'));
+commands.push(solo,flex,general);
 const rest=new REST({version:'10'}).setToken(DISCORD_TOKEN);
 await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID,DISCORD_GUILD_ID),{body:commands.map(c=>c.toJSON())});
-console.log('✅ 까마귀봇 v4 /내전, /내전등록, /내전수정, /내전정보, /솔랭, /자랭 명령어 등록 완료');
+console.log('✅ 까마귀봇 v4 /내전, /내전등록, /내전수정, /내전정보, /솔랭, /자랭, /종합게임 명령어 등록 완료');
