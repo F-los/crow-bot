@@ -63,7 +63,8 @@ export function renderBoard(session){
     new ButtonBuilder().setCustomId(`crow:join:${suffix}`).setLabel('참가 신청').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(closed),
     new ButtonBuilder().setCustomId(`crow:leave:${suffix}`).setLabel('참가 취소').setEmoji('❌').setStyle(ButtonStyle.Secondary).setDisabled(closed),
     new ButtonBuilder().setCustomId(`crow:next:${suffix}`).setLabel(session.round===0?'1판 시작':'다음 판 시작').setEmoji('🎮').setStyle(ButtonStyle.Primary).setDisabled(closed||playing),
-    new ButtonBuilder().setCustomId(`crow:finish:${suffix}`).setLabel('게임 종료').setEmoji('🏁').setStyle(ButtonStyle.Danger).setDisabled(closed||!playing)
+    new ButtonBuilder().setCustomId(`crow:finish:${suffix}`).setLabel('게임 종료').setEmoji('🏁').setStyle(ButtonStyle.Danger).setDisabled(closed||!playing),
+    new ButtonBuilder().setCustomId(`crow:profile:${suffix}`).setLabel('내 정보 수정').setEmoji('✏️').setStyle(ButtonStyle.Secondary).setDisabled(closed)
   );
   const adminRow=new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`crow:remove:${suffix}`).setLabel('인원 제외 (관리자)').setEmoji('🚫').setStyle(ButtonStyle.Secondary).setDisabled(closed),
