@@ -38,7 +38,7 @@ export function renderGeneralBoard(session) {
       {name:(locked||closed&&session.confirmedAt?'✅ 확정 참가자':'📋 선착순 우선')+' ('+confirmed.length+'/'+session.capacity+')',value:rosterLines(confirmed)},
       {name:'⏳ 대기 순서 ('+waiting.length+'명)',value:rosterLines(waiting,confirmed.length)},
     )
-    .setFooter({text:locked?'신규 신청은 대기열로 추가됩니다. 다음 로테이션 클릭 시 현재 팀은 대기열 뒤로 이동합니다.':'선착순 우선 배정이며 관리자 명단 확정 후 로테이션을 진행합니다.'})
+    .setFooter({text:locked?'신규 신청은 대기열로 추가됩니다. 다음 로테이션 시 현재 팀은 명단에서 제외되며 재신청할 수 있습니다.':'선착순 우선 배정이며 관리자 명단 확정 후 로테이션을 진행합니다.'})
     .setTimestamp(new Date());
   const userRow=new ActionRowBuilder().addComponents(
     button(prefix+'join:'+sid,'참가 신청',ButtonStyle.Success,closed),
@@ -50,7 +50,7 @@ export function renderGeneralBoard(session) {
     button(prefix+'details:'+sid,'신청 정보 보기',ButtonStyle.Secondary,closed),
     button(prefix+'remove:'+sid,'참가자 제외',ButtonStyle.Secondary,closed||locked||session.applicants.length===0),
     button(prefix+(locked?'unconfirm':'confirm')+':'+sid,locked?'확정 취소':'명단 확정',locked?ButtonStyle.Secondary:ButtonStyle.Success,closed||(!locked&&session.applicants.length===0)),
-    button(prefix+'next:'+sid,'다음 로테이션',ButtonStyle.Primary,closed||!locked||waiting.length===0),
+    button(prefix+'next:'+sid,'다음 로테이션',ButtonStyle.Primary,closed||!locked),
     button(prefix+'close:'+sid,'모집 종료',ButtonStyle.Danger,closed),
   );
   return {embeds:[embed],components:[userRow,adminRow],allowedMentions:{parse:[]}};

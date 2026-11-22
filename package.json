@@ -1,9 +1,9 @@
 {
   "name": "kkamagwi-bot",
-  "version": "4.5.0",
+  "version": "4.5.1",
   "private": true,
   "type": "module",
-  "description": "까마귀봇 v4.5: 종합게임 안내용 로테이션 판수와 다음 팀 확정",
+  "description": "까마귀봇 v4.5.1: 종합게임 다음 로테이션 시 기존 참가자 제외 및 재신청",
   "engines": {
     "node": ">=22.13"
   },
