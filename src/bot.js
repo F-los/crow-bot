@@ -14,6 +14,7 @@ import { getProfile,markOnnjRegistered,restoreOnnjStatuses } from './profiles.js
 import { beginGame as beginGameSafe } from './game-service.js';
 import { beginRegistration,formatOwnProfile,handleRegistrationInteraction } from './registration.js';
 import {handleModeCommand,handleModeButton,handleModeSelect,safeRefresh as safeRefreshMode} from './mode-controller.js';
+import {handleGeneralCommand,handleGeneralButton,handleGeneralSelect,handleGeneralModal} from './general-controller.js';
 
 const {DISCORD_TOKEN}=process.env;
 if(!DISCORD_TOKEN) throw new Error('.env에 DISCORD_TOKEN을 설정하세요.');
@@ -199,9 +200,17 @@ client.on(Events.InteractionCreate,async(i)=>{
   const modeCommand=i.isChatInputCommand()&&['솔랭','자랭'].includes(i.commandName);
   const modeButton=i.isButton()&&i.customId.startsWith('crowv4:');
   const modeSelect=i.isStringSelectMenu()&&i.customId.startsWith('crowv4:');
-  if(!command&&!button&&!select&&!registration&&!modeCommand&&!modeButton&&!modeSelect)return;
+  const generalCommand=i.isChatInputCommand()&&i.commandName==='종합게임';
+  const generalButton=i.isButton()&&i.customId.startsWith('crowgen:');
+  const generalSelect=i.isStringSelectMenu()&&i.customId.startsWith('crowgen:');
+  const generalModal=i.isModalSubmit()&&i.customId.startsWith('crowgen:');
+  if(!command&&!button&&!select&&!registration&&!modeCommand&&!modeButton&&!modeSelect&&!generalCommand&&!generalButton&&!generalSelect&&!generalModal)return;
   try{
-    if(modeCommand)await handleModeCommand(i,client,requireAdmin);
+    if(generalCommand)await handleGeneralCommand(i,client,requireAdmin);
+    else if(generalButton)await handleGeneralButton(i,client,requireAdmin);
+    else if(generalSelect)await handleGeneralSelect(i,client,requireAdmin);
+    else if(generalModal)await handleGeneralModal(i,client);
+    else if(modeCommand)await handleModeCommand(i,client,requireAdmin);
     else if(modeButton)await handleModeButton(i,client,requireAdmin);
     else if(modeSelect)await handleModeSelect(i,client,requireAdmin);
     else if(registration){
