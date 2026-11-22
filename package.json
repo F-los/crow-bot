@@ -1,6 +1,6 @@
 {
   "name": "kkamagwi-bot",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "private": true,
   "type": "module",
   "description": "까마귀봇 v4: 내전 로테이션 + 솔랭 유료 듀오권 승인 대기열 + 자랭 무료 시참 대기열",
