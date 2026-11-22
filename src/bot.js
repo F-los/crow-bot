@@ -8,13 +8,14 @@ import {
   adjustMatchesPlayed,closeSession,finishRound,isGameRunning,joinSession,kickPlayer,
   leaveSession,makeSession,myStatus,nextRound,priorityPlayers,
 } from './rotation.js';
-import { getGuild,persist } from './store.js';
+import { getGuild,persist,state } from './store.js';
 import { renderBoard } from './render.js';
 import { getProfile,markOnnjRegistered,restoreOnnjStatuses } from './profiles.js';
 import { beginGame as beginGameSafe } from './game-service.js';
 import { beginRegistration,formatOwnProfile,handleRegistrationInteraction } from './registration.js';
 import {handleModeCommand,handleModeButton,handleModeSelect,safeRefresh as safeRefreshMode} from './mode-controller.js';
 import {handleGeneralCommand,handleGeneralButton,handleGeneralSelect,handleGeneralModal} from './general-controller.js';
+import {renderGeneralBoard} from './general-render.js';
 
 const {DISCORD_TOKEN}=process.env;
 if(!DISCORD_TOKEN) throw new Error('.env에 DISCORD_TOKEN을 설정하세요.');
@@ -185,6 +186,18 @@ async function handleSelect(i){
 }
 client.once(Events.ClientReady,async ready=>{
   console.log(`🐦‍⬛ 까마귀봇 v4 로그인 완료: ${ready.user.tag}`);
+  // 업데이트 전부터 진행 중인 종합게임 모집판도 재시작할 때 최신 버튼으로 갱신.
+  for(const guild of Object.values(state.guilds??{})){
+    const session=guild.generalGame;
+    if(!session?.messageId||!['open','confirmed'].includes(session.status))continue;
+    try{
+      const channel=await client.channels.fetch(session.channelId);
+      if(!channel?.isTextBased()||!('messages' in channel))continue;
+      const message=await channel.messages.fetch(session.messageId);
+      await message.edit(renderGeneralBoard(session));
+      console.log('✅ 종합게임 모집판 새로고침:',session.id);
+    }catch(error){console.error('종합게임 모집판 재시작 갱신 실패:',error);}
+  }
   if(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_GUILD_ID){
     try{await import('./register.js');}
     catch(error){console.error('새 슬래시 명령어 자동 등록 실패:',error);}
