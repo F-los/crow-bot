@@ -9,7 +9,8 @@ export const MODE_META = Object.freeze({
 export const TICKET_SOURCES = Object.freeze({donation:'5,000원 후원',roulette:'룰렛 듀오권'});
 
 function assertOpen(session) {
-  if (!session || session.status !== 'open') throw new Error('진행 중인 모집이 없습니다.');
+  if (!session) throw new Error('진행 중인 모집이 없습니다.');
+  if (session.status !== 'open') throw new Error('이미 종료된 모집입니다.');
 }
 function assertMode(mode) {
   if (!MODE_META[mode]) throw new Error('알 수 없는 모집 방식입니다.');
