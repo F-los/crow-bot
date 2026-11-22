@@ -155,10 +155,14 @@ export async function handleGeneralCommand(interaction,client,requireAdmin) {
     return;
   }
   if (sub==='다음로테이션') {
+    const previousCount=generalGroups(session).confirmed.length;
     const selected=nextGeneralRotation(session);
     persist();
     const note=await safeRefresh(session,client);
-    await interaction.editReply('🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 명단 '+selected.length+'명 확정! ('+rotationMatches(session)+'판씩 진행 안내)\n'+selected.map(p=>'<@'+p.id+'>').join(' ') + note);
+    const result=selected.length
+      ? '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 명단 '+selected.length+'명 확정! ('+rotationMatches(session)+'판씩 진행 안내)\n'+selected.map(p=>'<@'+p.id+'>').join(' ')
+      : '🔄 **'+safeDiscordText(session.gameName)+'** 대기자가 없어 다음 '+session.rotationIndex+'회차 참가 신청을 다시 받습니다.';
+    await interaction.editReply(result+'\n✅ 이전 참가자 '+previousCount+'명은 명단에서 제외되어 재신청할 수 있습니다.'+note);
     return;
   }
   if (sub==='명단') {
@@ -214,10 +218,14 @@ export async function handleGeneralButton(interaction,client,requireAdmin) {
     const note=await safeRefresh(session,client);
     await interaction.editReply('✅ **'+safeDiscordText(session.gameName)+'** '+(session.rotationIndex||1)+'회차 명단 '+selected.length+'명 확정! '+rotationMatches(session)+'판씩 진행 후 다음 로테이션을 눌러주세요. 대기 신청은 계속 받습니다.'+note);
   } else if (action==='next') {
+    const previousCount=generalGroups(session).confirmed.length;
     const selected=nextGeneralRotation(session);
     persist();
     const note=await safeRefresh(session,client);
-    await interaction.editReply('🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 팀 확정! '+rotationMatches(session)+'판씩 진행 안내\n'+selected.map(p=>'<@'+p.id+'>').join(' ')+note);
+    const result=selected.length
+      ? '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 팀 '+selected.length+'명 확정! '+rotationMatches(session)+'판씩 진행 안내\n'+selected.map(p=>'<@'+p.id+'>').join(' ')
+      : '🔄 **'+safeDiscordText(session.gameName)+'** 대기자가 없어 다음 '+session.rotationIndex+'회차 참가 신청을 다시 받습니다.';
+    await interaction.editReply(result+'\n✅ 이전 참가자 '+previousCount+'명은 명단에서 제외되어 재신청할 수 있습니다.'+note);
   } else if (action==='unconfirm') {
     unconfirmGeneralSession(session);
     persist();
