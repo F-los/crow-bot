@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGeneralSession,joinGeneralSession,leaveGeneralSession,confirmGeneralSession,unconfirmGeneralSession,nextGeneralRotation,savedGeneralInfo} from '../src/general-queue.js';
+import {createGeneralSession,joinGeneralSession,leaveGeneralSession,confirmGeneralSession,unconfirmGeneralSession,nextGeneralRotation,savedGeneralInfo,generalGroups} from '../src/general-queue.js';
 import {renderGeneralBoard} from '../src/general-render.js';
 import {getGuild,state,persist} from '../src/store.js';
 import {handleGeneralCommand,handleGeneralButton,handleGeneralModal,handleGeneralSelect} from '../src/general-controller.js';
@@ -162,4 +162,45 @@ test('다음 로테이션 후 1~2명 예상 참가자는 새 신청으로 채워
   confirmGeneralSession(s);
   board=renderGeneralBoard(s);
   assert.equal(board.embeds[0].toJSON().fields[1].name,'✅ 확정 참가자 (3/3)');
+});
+
+
+test('디스코드 다음 로테이션 버튼은 자동 확정 대신 예상 참가자를 편성한다',async()=>{
+  const guildId='test-general-provisional-'+process.pid;
+  const session=createGeneralSession(guildId,'channel','s456','배틀그라운드',3,2);
+  session.messageId='board456';
+  const guild=getGuild(guildId);
+  guild.generalGame=session;
+  const replies=[];
+  const boards=[];
+  const client={channels:{fetch:async()=>({
+    isTextBased:()=>true,
+    messages:{fetch:async()=>({edit:async board=>{boards.push(board);}})},
+  })}};
+  function interaction(action) {
+    return {
+      guildId,customId:'crowgen:'+action+':'+session.id,
+      user:{id:'admin',username:'admin'},member:{nickname:'매니저'},
+      message:{id:session.messageId},
+      deferReply:async()=>{},
+      editReply:async value=>{replies.push(value);},
+    };
+  }
+  try{
+    for(let i=1;i<=5;i++)joinGeneralSession(session,'u'+i,'유저'+i,'닉'+i);
+    confirmGeneralSession(session);
+    await handleGeneralButton(interaction('next'),client,()=>{});
+    assert.equal(session.status,'open');
+    assert.deepEqual(generalGroups(session).confirmed.map(p=>p.id),['u4','u5']);
+    assert.match(String(replies.at(-1)),/예상 참가자 2명/);
+    assert.match(boards.at(-1).embeds[0].toJSON().fields[1].name,/예상 참가자/);
+    joinGeneralSession(session,'u6','유저6','닉6');
+    assert.deepEqual(generalGroups(session).confirmed.map(p=>p.id),['u4','u5','u6']);
+    await handleGeneralButton(interaction('confirm'),client,()=>{});
+    assert.equal(session.status,'confirmed');
+    assert.deepEqual(generalGroups(session).confirmed.map(p=>p.id),['u4','u5','u6']);
+  }finally{
+    delete state.guilds[guildId];
+    persist();
+  }
 });
