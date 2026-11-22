@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateProfile,rankLabel,preferredLanes} from '../src/profile-utils.js';
-import {buildRoster,previewRosterLines,rosterForBoard,rosterLine,sortConfirmedRoster} from '../src/roster.js';
+import {buildRoster,previewRosterLines,rosterForBoard,liveRosterForBoard,rosterLine,sortConfirmedRoster} from '../src/roster.js';
 
 const base={riotId:'까마귀#KR1',currentTier:'EMERALD',currentDivision:'2',peakTier:'MASTER',peakLp:230,lanes:['MID','TOP']};
 test('Riot ID 단일 입력, 티어 및 선호 라인 검증',()=>{
@@ -66,4 +66,22 @@ test('시작 전 예상 명단은 기존 대기열 정렬, 확정 화면에만 �
   assert.deepEqual(rosterForBoard(session,players,false,getProfile).map(p=>p.id),['old','new']);
   assert.deepEqual(rosterForBoard(session,players,true,getProfile).map(p=>p.id),['new','old']);
   assert.deepEqual(sortConfirmedRoster([]),[]);
+});
+
+test('정보 수정 후 현재 내전 명단에 변경된 계정을 표시하되 경기 기록은 보존한다',()=>{
+  const snapshot={
+    id:'u1',order:1,riotId:'기존계정#KR1',current:'골드 2',peak:'다이아몬드 1',
+    lanes:'탑',count:3,wasRegistered:false,missing:false,
+  };
+  const session={guildId:'g',round:2,rounds:[{round:2,roster:[snapshot]}]};
+  const edited={...base,riotId:'새계정#KR2',currentTier:'EMERALD',currentDivision:'2',
+    peakTier:'MASTER',peakLp:230,lanes:['MID','TOP'],onnjRegistered:true};
+  const current=liveRosterForBoard(session,[{id:'u1',matchesPlayed:3}],true,()=>edited)[0];
+  assert.equal(current.riotId,'새계정#KR2');
+  assert.equal(current.current,'에메랄드 2');
+  assert.equal(current.peak,'마스터 230LP');
+  assert.equal(current.lanes,'미드, 탑');
+  assert.equal(current.count,3);
+  assert.equal(current.wasRegistered,false);
+  assert.equal(session.rounds[0].roster[0].riotId,'기존계정#KR1');
 });

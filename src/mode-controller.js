@@ -174,6 +174,10 @@ export async function handleModeButton(i,client,requireAdmin) {
       components:[queueSelect(s,action)],flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
     return;
   }
+  if(action==='profile'){
+    await beginRegistration(i,null,Boolean(getProfile(i.guildId,i.user.id)));
+    return;
+  }
   if(action==='donation'||action==='roulette'||action==='join'){
     const source=action==='join'?null:action;
     if(s.mode==='solo' && !source)throw new Error('듀오권 획득 방법을 선택해주세요.');

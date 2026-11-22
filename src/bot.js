@@ -141,6 +141,10 @@ async function handleButton(i){
     await i.reply({content:`${action==='remove'?'🚫 제외':'➕➖ 판수 변경'}할 참가자를 선택하세요.${queue.length>25?'\n※ 상위 25명만 표시됩니다.':''}`,
       components:[selectionRow(s,action)],flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});return;
   }
+  if(action==='profile'){
+    await beginRegistration(i,null,Boolean(getProfile(i.guildId,i.user.id)));
+    return;
+  }
   if(action==='join'){
     const registered=getProfile(i.guildId,i.user.id);
     if(!registered){await beginRegistration(i,s.id);return;}
@@ -204,8 +208,11 @@ client.on(Events.InteractionCreate,async(i)=>{
       const result=await handleRegistrationInteraction(i);
       if(result?.registered){
         const guild=getGuild(result.guildId);
-        if(result.sessionId && !result.mode && guild.active?.id===result.sessionId)
-          await safeRefresh(guild.active);
+        if(guild.active?.status==='open' && (
+          (!result.mode && result.sessionId===guild.active.id) ||
+          guild.active.players[result.userId] ||
+          guild.active.currentIds?.includes(result.userId)
+        ))await safeRefresh(guild.active);
         // 기존 모집에 대기 중이던 사용자가 /내전등록으로 등록한 경우도 반영.
         for(const session of Object.values(guild.modeQueues??{})){
           if(session?.status!=='open')continue;
