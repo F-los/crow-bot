@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {
   createGeneralSession,joinGeneralSession,editGeneralApplicant,
   leaveGeneralSession,orderedGeneralApplicants,generalGroups,generalPosition,
-  closeGeneralSession,confirmGeneralSession,unconfirmGeneralSession,
+  closeGeneralSession,confirmGeneralSession,unconfirmGeneralSession,nextGeneralRotation,rotationMatches,
 } from '../src/general-queue.js';
 
-const fresh=(cap=2)=>createGeneralSession('guild','channel','general-session','배틀그라운드',cap,100);
+const fresh=(cap=2)=>createGeneralSession('guild','channel','general-session','배틀그라운드',cap,2,100);
 
 test('종합게임은 판수 없이 신청 순서대로 정원까지 확정하고 나머지는 대기한다',()=>{
   const s=fresh();
@@ -77,7 +77,7 @@ test('다른 게임 모집의 인원과 순서에 영향받지 않는다',()=>{
   assert.deepEqual(orderedGeneralApplicants(b).map(p=>p.id),['b']);
 });
 
-test('관리자 확정은 선착순 정원 내 참가자만 확정하고 신청을 잠근다',()=>{
+test('관리자 확정 후 현재 팀은 고정되고 추가 신청은 대기로 들어간다',()=>{
   const s=fresh(2);
   joinGeneralSession(s,'a','A','닉1','',10);
   joinGeneralSession(s,'b','B','닉2','',20);
@@ -88,9 +88,13 @@ test('관리자 확정은 선착순 정원 내 참가자만 확정하고 신청�
   assert.equal(s.confirmedAt,40);
   assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['c']);
   assert.throws(()=>confirmGeneralSession(s),/이미 명단이 확정/);
-  assert.throws(()=>joinGeneralSession(s,'d','D','닉4'),/이미 명단이 확정/);
-  assert.throws(()=>editGeneralApplicant(s,'a','A','수정'),/이미 명단이 확정/);
-  assert.throws(()=>leaveGeneralSession(s,'a'),/이미 명단이 확정/);
+  joinGeneralSession(s,'d','D','닉4');
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['a','b']);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['c','d']);
+  editGeneralApplicant(s,'d','D','닉네임수정');
+  leaveGeneralSession(s,'d');
+  assert.throws(()=>editGeneralApplicant(s,'a','A','수정'),/현재 확정된 참가자/);
+  assert.throws(()=>leaveGeneralSession(s,'a'),/현재 확정된 참가자/);
   closeGeneralSession(s,50);
   assert.equal(s.status,'closed');
   assert.equal(s.confirmedAt,40);
@@ -112,4 +116,54 @@ test('확정 버튼은 신청자가 한 명도 없을 때 막는다',()=>{
   const s=fresh();
   assert.throws(()=>confirmGeneralSession(s),/신청자가 없어/);
   assert.equal(s.status,'open');
+});
+
+test('로테이션 판수는 안내용이며 판별 카운터 없이 다음 팀을 확정한다',()=>{
+  const s=createGeneralSession('guild','channel','rotation','배틀그라운드',2,3,100);
+  assert.equal(rotationMatches(s),3);
+  for(let i=1;i<=5;i++)joinGeneralSession(s,'u'+i,'유저'+i,'닉'+i,'',100+i);
+  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['u1','u2']);
+  assert.equal(s.rotationIndex,1);
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u3','u4']);
+  assert.equal(s.rotationIndex,2);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u5','u1','u2']);
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u5','u1']);
+  assert.equal(s.rotationIndex,3);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u2','u3','u4']);
+  assert.equal(rotationMatches(s),3); // 게임 판수는 추적하지 않음
+});
+test('현재 팀 확정 중에도 새로 들어온 신청자는 대기하며 다음 로테이션에 들어간다',()=>{
+  const s=createGeneralSession('g','c','id','오버쿡드',2,2);
+  joinGeneralSession(s,'a','A','닉A');
+  confirmGeneralSession(s);
+  joinGeneralSession(s,'b','B','닉B');
+  joinGeneralSession(s,'c','C','닉C');
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['a']);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['b','c']);
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['b','c']);
+});
+test('대기자가 없으면 의미 없는 다음 로테이션을 막는다',()=>{
+  const s=fresh(2);
+  joinGeneralSession(s,'a','A','닉A');
+  assert.throws(()=>nextGeneralRotation(s),/명단 확정/);
+  confirmGeneralSession(s);
+  assert.throws(()=>nextGeneralRotation(s),/대기자가 없습니다/);
+  assert.equal(s.rotationIndex,1);
+});
+test('기존 저장 데이터에서 로테이션 판수를 읽지 못하면 1판 안내로 표시한다',()=>{
+  const s=fresh();
+  delete s.rotationMatches;
+  assert.equal(rotationMatches(s),1);
+  joinGeneralSession(s,'a','A','닉A');
+  joinGeneralSession(s,'b','B','닉B');
+  joinGeneralSession(s,'c','C','닉C');
+  confirmGeneralSession(s);
+  delete s.currentIds;
+  delete s.rotationIndex;
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['c','a']);
+  assert.equal(s.rotationIndex,2);
+});
+test('로테이션 판수 범위 검증',()=>{
+  assert.throws(()=>createGeneralSession('g','c','id','게임',2,0),/로테이션 판수/);
+  assert.throws(()=>createGeneralSession('g','c','id','게임',2,31),/로테이션 판수/);
 });
