@@ -42,7 +42,7 @@ test('솔랭 중복 신청/잘못된 권종/중복 승인을 막는다',()=>{
   assert.throws(()=>approveSolo(session,'u'),/이미 승인/);
   assert.equal(session.waiting[0].source,'roulette');
 });
-test('자랭은 무료 선착순 4명 확정, 나머지 대기자는 유지한다',()=>{
+test('자랭 첫 판은 0판 동률이므로 신청 순서대로 4명 확정한다',()=>{
   const session=s('flex');
   for(let i=1;i<=6;i++)joinModeQueue(session,'u'+i,'참가자'+i,null,i);
   assert.deepEqual(startModeGame(session,10).map(p=>p.id),['u1','u2','u3','u4']);
