@@ -162,6 +162,7 @@ export async function handleModeSelect(i,client,requireAdmin) {
   const userId=i.values[0];
   const operation=action==='approvepick'?'approve':action==='removepick'?'remove':null;
   if(!operation)throw new Error('알 수 없는 관리자 선택 메뉴입니다.');
+  await i.deferUpdate();
   const result=await perform(s,operation,userId,client);
-  await i.update({content:result,components:[],allowedMentions:{parse:[]}});
+  await i.editReply({content:result,components:[],allowedMentions:{parse:[]}});
 }
