@@ -7,7 +7,7 @@ import {getGuild,persist} from './store.js';
 import {
   createGeneralSession,orderedGeneralApplicants,generalGroups,generalPosition,
   joinGeneralSession,editGeneralApplicant,leaveGeneralSession,closeGeneralSession,
-  confirmGeneralSession,unconfirmGeneralSession,
+  confirmGeneralSession,unconfirmGeneralSession,nextGeneralRotation,rotationMatches,
 } from './general-queue.js';
 import {renderGeneralBoard} from './general-render.js';
 import {safeDiscordText} from './profile-utils.js';
@@ -55,7 +55,7 @@ function userStatus(session,userId) {
   if (!position) return '현재 신청하지 않았습니다.';
   const p=session.applicants.find(p=>p.id===userId);
   return '🎮 **'+safeDiscordText(session.gameName)+'** · 게임 닉네임: **'+safeDiscordText(p.gameNickname)+'**\n'
-    +'신청 순서 **'+position.position+'번째** · '+(position.confirmed?(session.status==='confirmed'?'✅ 명단 확정':'📋 선착순 우선 배정'):'⏳ 대기 '+(position.position-session.capacity)+'순위');
+    +'신청 순서 **'+position.position+'번째** · '+(position.confirmed?(session.status==='confirmed'?'✅ 명단 확정':'📋 선착순 우선 배정'):'⏳ 대기 '+(position.position-generalGroups(session).confirmed.length)+'순위');
 }
 function modalFor(session,userId,edit) {
   const existing=session.applicants.find(p=>p.id===userId);
@@ -79,18 +79,21 @@ function modalFor(session,userId,edit) {
     .addComponents(new ActionRowBuilder().addComponents(nickname),new ActionRowBuilder().addComponents(extra));
 }
 function detailsFile(session) {
-  const list=orderedGeneralApplicants(session);
+  const {confirmed,waiting}=generalGroups(session);
+  const list=[...confirmed,...waiting];
   const lines=[
     '까마귀봇 종합게임 참가 신청 정보',
     '게임: '+session.gameName,
     '정원: '+session.capacity+'명 (스트리머 제외)',
+    '로테이션: '+rotationMatches(session)+'판씩 (안내용)',
+    '현재 로테이션: '+(session.rotationIndex||0),
     '신청자: '+list.length+'명',
     '상태: '+(session.status==='confirmed'?'명단 확정':session.status==='closed'?'모집 종료':'모집 중'),
     '',
   ];
   for (let n=0;n<list.length;n++) {
     const p=list[n];
-    lines.push((n+1)+' / '+(n<session.capacity?(session.confirmedAt?'확정':'우선 배정'):'대기')+
+    lines.push((n+1)+' / '+(n<confirmed.length?(session.confirmedAt?'확정':'우선 배정'):'대기')+
       ' / Discord ID: '+p.id+' / 표시 이름: '+p.displayName+
       ' / 게임 닉네임: '+p.gameNickname+
       ' / 추가 정보: '+(p.extraInfo||'(없음)'));
@@ -122,18 +125,19 @@ export async function handleGeneralCommand(interaction,client,requireAdmin) {
     const session=createGeneralSession(
       interaction.guildId,interaction.channel.id,randomUUID().slice(0,12),
       interaction.options.getString('게임',true),interaction.options.getInteger('인원',true),
+      interaction.options.getInteger('로테이션판수',true),
     );
     const message=await interaction.channel.send(renderGeneralBoard(session));
     session.messageId=message.id;
     guild.generalGame=session;
     persist();
-    await interaction.editReply('✅ **'+session.gameName+'** 종합게임 모집판을 생성했습니다. 정원 '+session.capacity+'명(시청자 신청자 기준), 선착순입니다.\n'+message.url);
+    await interaction.editReply('✅ **'+safeDiscordText(session.gameName)+'** 모집판 생성! 정원 '+session.capacity+'명, 로테이션당 '+rotationMatches(session)+'판(안내용) · 선착순입니다.\n'+message.url);
     return;
   }
   const session=currentSession(interaction);
   if (sub==='현황') {
     const {confirmed,waiting}=generalGroups(session);
-    await interaction.editReply('🎮 **'+session.gameName+'** · 정원 '+session.capacity+'명 · '+(session.status==='confirmed'?'명단 확정':'모집 중')+' · 우선/확정 '+confirmed.length+'명 · 대기 '+waiting.length+'명\n<https://discord.com/channels/'+session.guildId+'/'+session.channelId+'/'+session.messageId+'>');
+    await interaction.editReply('🎮 **'+safeDiscordText(session.gameName)+'** · 정원 '+session.capacity+'명 · '+rotationMatches(session)+'판씩 로테이션(안내용) · '+(session.status==='confirmed'?'명단 확정 '+(session.rotationIndex||1)+'회차':'모집 중')+' · 우선/확정 '+confirmed.length+'명 · 대기 '+waiting.length+'명\n<https://discord.com/channels/'+session.guildId+'/'+session.channelId+'/'+session.messageId+'>');
     return;
   }
   if (sub==='확정' || sub==='확정취소') {
@@ -141,13 +145,20 @@ export async function handleGeneralCommand(interaction,client,requireAdmin) {
       const selected=confirmGeneralSession(session);
       persist();
       const note=await safeRefresh(session,client);
-      await interaction.editReply('✅ **'+safeDiscordText(session.gameName)+'** 최종 명단 '+selected.length+'명 확정! 신청과 수정은 잠겼습니다.'+note);
+      await interaction.editReply('✅ **'+safeDiscordText(session.gameName)+'** '+(session.rotationIndex||1)+'회차 명단 '+selected.length+'명 확정! '+rotationMatches(session)+'판씩 진행 후 다음 로테이션을 눌러주세요. 대기 신청은 계속 받습니다.'+note);
     } else {
       unconfirmGeneralSession(session);
       persist();
       const note=await safeRefresh(session,client);
       await interaction.editReply('🔓 명단 확정을 취소하고 기존 신청 순서를 유지한 채 다시 모집합니다.'+note);
     }
+    return;
+  }
+  if (sub==='다음로테이션') {
+    const selected=nextGeneralRotation(session);
+    persist();
+    const note=await safeRefresh(session,client);
+    await interaction.editReply('🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 명단 '+selected.length+'명 확정! ('+rotationMatches(session)+'판씩 진행 안내)\n'+selected.map(p=>'<@'+p.id+'>').join(' ') + note);
     return;
   }
   if (sub==='명단') {
@@ -174,7 +185,7 @@ export async function handleGeneralButton(interaction,client,requireAdmin) {
   const [,action,sid]=interaction.customId.split(':');
   const session=currentSession(interaction);
   checkBoard(session,interaction,sid);
-  if (['details','remove','confirm','unconfirm','close'].includes(action)) requireAdmin(interaction);
+  if (['details','remove','confirm','unconfirm','next','close'].includes(action)) requireAdmin(interaction);
   if (action==='join' || action==='edit') {
     await interaction.showModal(modalFor(session,interaction.user.id,action==='edit'));
     return;
@@ -201,7 +212,12 @@ export async function handleGeneralButton(interaction,client,requireAdmin) {
     const selected=confirmGeneralSession(session);
     persist();
     const note=await safeRefresh(session,client);
-    await interaction.editReply('✅ **'+safeDiscordText(session.gameName)+'** 최종 명단 '+selected.length+'명 확정! 신청·수정·취소가 잠겼습니다.'+note);
+    await interaction.editReply('✅ **'+safeDiscordText(session.gameName)+'** '+(session.rotationIndex||1)+'회차 명단 '+selected.length+'명 확정! '+rotationMatches(session)+'판씩 진행 후 다음 로테이션을 눌러주세요. 대기 신청은 계속 받습니다.'+note);
+  } else if (action==='next') {
+    const selected=nextGeneralRotation(session);
+    persist();
+    const note=await safeRefresh(session,client);
+    await interaction.editReply('🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 팀 확정! '+rotationMatches(session)+'판씩 진행 안내\n'+selected.map(p=>'<@'+p.id+'>').join(' ')+note);
   } else if (action==='unconfirm') {
     unconfirmGeneralSession(session);
     persist();
