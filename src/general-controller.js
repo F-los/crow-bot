@@ -56,7 +56,7 @@ function userStatus(session,userId) {
   if (!position) return '현재 신청하지 않았습니다.';
   const p=session.applicants.find(p=>p.id===userId);
   return '🎮 **'+safeDiscordText(session.gameName)+'** · 게임 닉네임: **'+safeDiscordText(p.gameNickname)+'**\n'
-    +'신청 순서 **'+position.position+'번째** · '+(position.confirmed?(session.status==='confirmed'?'✅ 명단 확정':'📋 선착순 우선 배정'):'⏳ 대기 '+(position.position-generalGroups(session).confirmed.length)+'순위');
+    +'신청 순서 **'+position.position+'번째** · '+(position.confirmed?(session.status==='confirmed'?'✅ 명단 확정':'📋 예상 참가자'):'⏳ 대기 '+(position.position-generalGroups(session).confirmed.length)+'순위');
 }
 function modalFor(session,userId,edit) {
   const applicant=session.applicants.find(p=>p.id===userId);
@@ -95,7 +95,7 @@ function detailsFile(session) {
   ];
   for (let n=0;n<list.length;n++) {
     const p=list[n];
-    lines.push((n+1)+' / '+(n<confirmed.length?(session.confirmedAt?'확정':'우선 배정'):'대기')+
+    lines.push((n+1)+' / '+(n<confirmed.length?(session.confirmedAt?'확정':'예상 참가자'):'대기')+
       ' / Discord ID: '+p.id+' / 표시 이름: '+p.displayName+
       ' / 게임 닉네임: '+p.gameNickname+
       ' / 추가 정보: '+(p.extraInfo||'(없음)'));
@@ -139,7 +139,7 @@ export async function handleGeneralCommand(interaction,client,requireAdmin) {
   const session=currentSession(interaction);
   if (sub==='현황') {
     const {confirmed,waiting}=generalGroups(session);
-    await interaction.editReply('🎮 **'+safeDiscordText(session.gameName)+'** · 정원 '+session.capacity+'명 · '+rotationMatches(session)+'판씩 로테이션(안내용) · '+(session.status==='confirmed'?'명단 확정 '+(session.rotationIndex||1)+'회차':'모집 중')+' · 우선/확정 '+confirmed.length+'명 · 대기 '+waiting.length+'명\n<https://discord.com/channels/'+session.guildId+'/'+session.channelId+'/'+session.messageId+'>');
+    await interaction.editReply('🎮 **'+safeDiscordText(session.gameName)+'** · 정원 '+session.capacity+'명 · '+rotationMatches(session)+'판씩 로테이션(안내용) · '+(session.status==='confirmed'?'명단 확정 '+(session.rotationIndex||1)+'회차':'예상 참가자 모집 중')+' · 예상/확정 '+confirmed.length+'명 · 대기 '+waiting.length+'명\n<https://discord.com/channels/'+session.guildId+'/'+session.channelId+'/'+session.messageId+'>');
     return;
   }
   if (sub==='확정' || sub==='확정취소') {
@@ -162,9 +162,9 @@ export async function handleGeneralCommand(interaction,client,requireAdmin) {
     persist();
     const note=await safeRefresh(session,client);
     const result=selected.length
-      ? '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 명단 '+selected.length+'명 확정! ('+rotationMatches(session)+'판씩 진행 안내)\n'+selected.map(p=>'<@'+p.id+'>').join(' ')
-      : '🔄 **'+safeDiscordText(session.gameName)+'** 대기자가 없어 다음 '+session.rotationIndex+'회차 참가 신청을 다시 받습니다.';
-    await interaction.editReply(result+'\n✅ 이전 참가자 '+previousCount+'명은 명단에서 제외되어 재신청할 수 있습니다.'+note);
+      ? '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 **예상 참가자 '+selected.length+'명**이 선착순으로 올라왔습니다. (아직 확정 전)\n'+selected.map(p=>'<@'+p.id+'>').join(' ')
+      : '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 예상 참가자를 모집합니다.';
+    await interaction.editReply(result+'\n📋 빈자리는 신규 신청자가 자동으로 채우며, 게임 시작 전 [명단 확정]을 눌러주세요.\n✅ 이전 참가자 '+previousCount+'명은 명단에서 제외되어 재신청할 수 있습니다.'+note);
     return;
   }
   if (sub==='명단') {
@@ -241,9 +241,9 @@ export async function handleGeneralButton(interaction,client,requireAdmin) {
     persist();
     const note=await safeRefresh(session,client);
     const result=selected.length
-      ? '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 팀 '+selected.length+'명 확정! '+rotationMatches(session)+'판씩 진행 안내\n'+selected.map(p=>'<@'+p.id+'>').join(' ')
-      : '🔄 **'+safeDiscordText(session.gameName)+'** 대기자가 없어 다음 '+session.rotationIndex+'회차 참가 신청을 다시 받습니다.';
-    await interaction.editReply(result+'\n✅ 이전 참가자 '+previousCount+'명은 명단에서 제외되어 재신청할 수 있습니다.'+note);
+      ? '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 **예상 참가자 '+selected.length+'명**이 선착순으로 올라왔습니다. (아직 확정 전)\n'+selected.map(p=>'<@'+p.id+'>').join(' ')
+      : '🔄 **'+safeDiscordText(session.gameName)+'** '+session.rotationIndex+'회차 예상 참가자를 모집합니다.';
+    await interaction.editReply(result+'\n📋 빈자리는 신규 신청자가 자동으로 채우며, 게임 시작 전 [명단 확정]을 눌러주세요.\n✅ 이전 참가자 '+previousCount+'명은 명단에서 제외되어 재신청할 수 있습니다.'+note);
   } else if (action==='unconfirm') {
     unconfirmGeneralSession(session);
     persist();
