@@ -34,7 +34,10 @@ function modeCommands(name,description) {
 const solo=modeCommands('솔랭','5,000원/룰렛 듀오권 확인 후 솔랭 듀오 대기열 관리')
   .addSubcommand(s=>s.setName('승인').setDescription('듀오권 확인 후 신청 승인 (관리자)')
     .addUserOption(o=>o.setName('유저').setDescription('승인할 사용자').setRequired(true)));
-const flex=modeCommands('자랭','무료 자랭 시참: 스트리머+시청자 4명 모집');
+const flex=modeCommands('자랭','무료 자랭 시참: 스트리머+시청자 4명, 별도 판수 로테이션')
+  .addSubcommand(s=>s.setName('판수변경').setDescription('자랭 전용 참여 판수 조정 (관리자)')
+    .addUserOption(o=>o.setName('유저').setDescription('대기 중인 유저').setRequired(true))
+    .addIntegerOption(o=>o.setName('증감').setDescription('예: +1 또는 -1').setRequired(true).setMinValue(-99).setMaxValue(99)));
 commands.push(solo,flex);
 const rest=new REST({version:'10'}).setToken(DISCORD_TOKEN);
 await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID,DISCORD_GUILD_ID),{body:commands.map(c=>c.toJSON())});
