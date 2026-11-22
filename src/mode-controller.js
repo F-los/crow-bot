@@ -1,10 +1,11 @@
 import {randomUUID} from 'node:crypto';
-import {ActionRowBuilder, MessageFlags, StringSelectMenuBuilder} from 'discord.js';
+import {ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, StringSelectMenuBuilder} from 'discord.js';
 import {getGuild, persist} from './store.js';
 import {
   MODE_META,TICKET_SOURCES,createModeSession,joinModeQueue,leaveModeQueue,
   removeModePlayer,approveSolo,pendingSolo,eligibleModePlayers,
-  startModeGame,finishModeGame,closeModeSession,modeUserStatus
+  startModeGame,finishModeGame,closeModeSession,modeUserStatus,
+  priorityFlexPlayers,flexRecords,adjustFlexMatches
 } from './mode-queue.js';
 import {renderModeBoard} from './mode-render.js';
 
@@ -36,18 +37,24 @@ async function safeRefresh(s,client) {
   catch(e) {console.error('v4 모집판 갱신 실패',e);return '\n⚠️ 저장은 완료됐지만 모집판 표시가 갱신되지 않았습니다. 메시지 권한을 확인해주세요.';}
 }
 function queueSelect(s,action) {
-  const entries=action==='approve'?pendingSolo(s):s.waiting;
+  const entries=action==='approve'?pendingSolo(s):s.mode==='flex'?priorityFlexPlayers(s):s.waiting;
   if(!entries.length)throw new Error(action==='approve'?'승인 대기 중인 신청자가 없습니다.':'대기열에 참가자가 없습니다.');
   const options=entries.slice(0,25).map((p,i)=>({
     label:(p.displayName||p.id).slice(0,100),
-    description:`${i+1}번째 · ${s.mode==='solo'?TICKET_SOURCES[p.source]:'자랭 참가'}`.slice(0,100),
+    description:(s.mode==='solo'?`${i+1}번째 · ${TICKET_SOURCES[p.source]}`:`우선순위 ${i+1}위 · ${flexRecords(s)[p.id]?.matchesPlayed??0}판`).slice(0,100),
     value:p.id,
   }));
   const menu=new StringSelectMenuBuilder()
     .setCustomId(`crowv4:${s.mode}:${action}pick:${s.id}`)
-    .setPlaceholder(action==='approve'?'승인할 듀오 신청자 선택':'제외할 참가자 선택')
+    .setPlaceholder(action==='approve'?'승인할 듀오 신청자 선택':action==='count'?'판수를 변경할 자랭 참가자 선택':'제외할 참가자 선택')
     .addOptions(options);
   return new ActionRowBuilder().addComponents(menu);
+}
+function adjustRow(s,userId) {
+  const prefix=`crowv4:flex:adjust:${s.id}:${userId}`;
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`${prefix}:+1`).setLabel('+1판').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`${prefix}:-1`).setLabel('-1판').setStyle(ButtonStyle.Danger));
 }
 function statusText(s) {
   const meta=MODE_META[s.mode];
@@ -104,6 +111,16 @@ export async function handleModeCommand(i,client,requireAdmin) {
   }
   const s=currentSession(i,mode);
   if(sub==='현황'){await i.editReply(statusText(s));return;}
+  if(sub==='판수변경') {
+    if(mode!=='flex')throw new Error('자랭 판수만 변경할 수 있습니다.');
+    const user=i.options.getUser('유저',true);
+    const delta=i.options.getInteger('증감',true);
+    const player=adjustFlexMatches(s,user.id,delta);
+    persist();
+    const note=await safeRefresh(s,client);
+    await i.editReply(`✅ 자랭 <@${user.id}> 판수 ${delta>0?'+':''}${delta} → **${player.matchesPlayed}판**${note}`);
+    return;
+  }
   if(sub==='승인') {
     const user=i.options.getUser('유저',true);
     await i.editReply(await perform(s,'approve',user.id,client));return;
@@ -130,12 +147,23 @@ export async function handleModeCommand(i,client,requireAdmin) {
 
 export async function handleModeButton(i,client,requireAdmin) {
   if(!i.guildId)throw new Error('서버에서만 사용할 수 있습니다.');
-  const [,mode,action,sid]=i.customId.split(':');
+  const [,mode,action,sid,targetId,deltaStr]=i.customId.split(':');
   const s=currentSession(i,mode);
+  if(action==='adjust'){
+    requireAdmin(i);
+    if(s.id!==sid || mode!=='flex')throw new Error('만료되었거나 잘못된 판수 조정 버튼입니다.');
+    const record=adjustFlexMatches(s,targetId,Number(deltaStr));
+    persist();
+    await i.update({
+      content:`✅ <@${targetId}> 자랭 참여 판수 **${record.matchesPlayed}판**`,
+      components:[adjustRow(s,targetId)],allowedMentions:{parse:[]}});
+    await safeRefresh(s,client);
+    return;
+  }
   checkPanel(s,i,sid);
-  if(['approve','remove','start','finish'].includes(action))requireAdmin(i);
-  if(action==='approve' || action==='remove') {
-    await i.reply({content:action==='approve'?'승인할 듀오 참가자를 선택하세요.':'대기열에서 제외할 사람을 선택하세요.',
+  if(['approve','remove','count','start','finish'].includes(action))requireAdmin(i);
+  if(action==='approve' || action==='remove' || action==='count') {
+    await i.reply({content:action==='approve'?'승인할 듀오 참가자를 선택하세요.':action==='count'?'판수를 변경할 자랭 참가자를 선택하세요.':'대기열에서 제외할 사람을 선택하세요.',
       components:[queueSelect(s,action)],flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
     return;
   }
@@ -160,6 +188,13 @@ export async function handleModeSelect(i,client,requireAdmin) {
   const s=currentSession(i,mode);
   if(s.id!==sid)throw new Error('만료된 모집판입니다.');
   const userId=i.values[0];
+  if(action==='countpick'){
+    if(mode!=='flex')throw new Error('자랭 참가자만 판수를 변경할 수 있습니다.');
+    if(!s.waiting.some(p=>p.id===userId))throw new Error('해당 참가자가 자랭 대기열에 없습니다.');
+    await i.update({content:`➕➖ <@${userId}> · 현재 자랭 **${flexRecords(s)[userId]?.matchesPlayed??0}판**`,
+      components:[adjustRow(s,userId)],allowedMentions:{parse:[]}});
+    return;
+  }
   const operation=action==='approvepick'?'approve':action==='removepick'?'remove':null;
   if(!operation)throw new Error('알 수 없는 관리자 선택 메뉴입니다.');
   await i.deferUpdate();
