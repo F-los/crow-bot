@@ -1,9 +1,9 @@
 {
   "name": "kkamagwi-bot",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "private": true,
   "type": "module",
-  "description": "까마귀봇 v4.3: 내전·솔랭·자랭 내 정보 수정 버튼과 공통 롤 프로필",
+  "description": "까마귀봇 v4.4: 종합게임 선착순 참가 모집 및 기존 롤 모드",
   "engines": {
     "node": ">=22.13"
   },
