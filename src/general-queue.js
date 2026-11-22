@@ -124,15 +124,21 @@ export function nextGeneralRotation(session,now=Date.now()) {
   if (!session || session.status!=='confirmed') throw new Error('명단 확정 후 다음 로테이션을 진행할 수 있습니다.');
   const groups=generalGroups(session);
   if (!groups.confirmed.length) throw new Error('현재 확정된 참가자가 없습니다.');
-  if (!groups.waiting.length) throw new Error('다음 로테이션에 참가할 대기자가 없습니다.');
-  // 기존 확정 팀을 대기열 맨 뒤로 보내고, 남아 있던 대기자부터 다음 팀을 구성.
-  const maxSequence=Math.max(session.nextSequence??0,...session.applicants.map(p=>p.sequence??0));
-  session.nextSequence=maxSequence;
-  for (const p of groups.confirmed) p.sequence=++session.nextSequence;
+  // 진행을 마친 확정 인원은 완전히 제외한다. 재참여하려면 새로 신청해야 한다.
+  const completedIds=new Set(groups.confirmed.map(p=>p.id));
+  session.applicants=session.applicants.filter(p=>!completedIds.has(p.id));
+  // 남아 있던 대기자만 기존 신청 순서대로 다음 팀에 편성한다.
   const next=orderedGeneralApplicants(session).slice(0,session.capacity);
   session.currentIds=next.map(p=>p.id);
   session.rotationIndex=(session.rotationIndex||1)+1;
-  session.confirmedAt=now;
+  if (next.length) {
+    session.status='confirmed';
+    session.confirmedAt=now;
+  } else {
+    // 대기자가 없어도 기존 팀을 제외하고 다음 회차의 새 신청을 받을 수 있게 한다.
+    session.status='open';
+    session.confirmedAt=null;
+  }
   return next;
 }
 export function closeGeneralSession(session,now=Date.now()) {
