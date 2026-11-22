@@ -141,9 +141,10 @@ test('로테이션 판수는 안내용이며 다음 로테이션은 명단 확�
   assert.deepEqual(orderedGeneralApplicants(s).map(p=>p.id),['u5']); // u3/u4 완전 제외
   joinGeneralSession(s,'u1','첫째','재신청 닉');
   joinGeneralSession(s,'u2','둘째','재신청 닉');
-  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u1','u2']);
-  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['u5']);
-  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u1','u2']);
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u5','u1']);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u2']);
+  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['u5','u1']);
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u2']);
   assert.equal(s.rotationIndex,4);
   assert.equal(s.status,'open');
   assert.equal(generalPosition(s,'u5'),null);
