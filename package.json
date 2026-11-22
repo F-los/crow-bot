@@ -1,9 +1,9 @@
 {
   "name": "kkamagwi-bot",
-  "version": "4.5.3",
+  "version": "4.5.4",
   "private": true,
   "type": "module",
-  "description": "까마귀봇 v4.5.3: 종합게임 다음 로테이션 예상 참가자 편성",
+  "description": "까마귀봇 v4.5.4: 종합게임 게임 닉네임 원문 복사 개선",
   "engines": {
     "node": ">=22.13"
   },

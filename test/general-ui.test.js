@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGeneralSession,joinGeneralSession,leaveGeneralSession,confirmGeneralSession,unconfirmGeneralSession,nextGeneralRotation,savedGeneralInfo,generalGroups} from '../src/general-queue.js';
-import {renderGeneralBoard} from '../src/general-render.js';
+import {renderGeneralBoard,formatGeneralNickname} from '../src/general-render.js';
 import {getGuild,state,persist} from '../src/store.js';
 import {handleGeneralCommand,handleGeneralButton,handleGeneralModal,handleGeneralSelect} from '../src/general-controller.js';
 
@@ -199,6 +199,54 @@ test('디스코드 다음 로테이션 버튼은 자동 확정 대신 예상 참
     await handleGeneralButton(interaction('confirm'),client,()=>{});
     assert.equal(session.status,'confirmed');
     assert.deepEqual(generalGroups(session).confirmed.map(p=>p.id),['u4','u5','u6']);
+  }finally{
+    delete state.guilds[guildId];
+    persist();
+  }
+});
+
+
+test('게임 닉네임 밑줄은 대기/예상/확정 명단에서 그대로 보이며 복사할 수 있다',()=>{
+  const s=createGeneralSession('g','c','id','배틀그라운드',1,2);
+  joinGeneralSession(s,'1','첫째','kim_hyeon_2');
+  joinGeneralSession(s,'2','둘째','park_test_1');
+  assert.equal(formatGeneralNickname('kim_hyeon_2'),'\x60kim_hyeon_2\x60');
+  for (const step of ['예상','확정']) {
+    if (step==='확정') confirmGeneralSession(s);
+    const board=renderGeneralBoard(s).embeds[0].toJSON();
+    assert.match(board.fields[1].value,/\x60kim_hyeon_2\x60/);
+    assert.match(board.fields[2].value,/\x60park_test_1\x60/);
+    assert.doesNotMatch(JSON.stringify(board),/kim＿hyeon＿2|park＿test＿1/);
+  }
+});
+
+test('내 순서 확인과 재신청 확인에도 원본 게임 닉네임을 그대로 표시한다',async()=>{
+  const guildId='test-general-name-raw-'+process.pid;
+  const session=createGeneralSession(guildId,'channel','id','스팀게임',1,2);
+  session.messageId='test-panel';
+  const guild=getGuild(guildId);
+  guild.generalGame=session;
+  const outputs=[];
+  const client={channels:{fetch:async()=>({
+    isTextBased:()=>true,
+    messages:{fetch:async()=>({edit:async()=>{}})},
+  })}};
+  const interaction=action=>({
+    guildId,customId:'crowgen:'+action+':'+session.id,
+    user:{id:'rawuser',username:'rawuser'},member:{nickname:'원본 유지'},
+    message:{id:session.messageId},
+    deferReply:async()=>{},
+    editReply:async content=>{outputs.push(content);},
+  });
+  try {
+    joinGeneralSession(session,'rawuser','원본 유지','kim_hyeon_2');
+    await handleGeneralButton(interaction('status'),client,()=>{});
+    assert.match(String(outputs.at(-1)),/\x60kim_hyeon_2\x60/);
+    confirmGeneralSession(session);
+    nextGeneralRotation(session);
+    await handleGeneralButton(interaction('join'),client,()=>{});
+    assert.match(String(outputs.at(-1)),/\x60kim_hyeon_2\x60/);
+    assert.doesNotMatch(String(outputs.at(-1)),/kim＿hyeon＿2/);
   }finally{
     delete state.guilds[guildId];
     persist();
