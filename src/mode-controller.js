@@ -5,7 +5,7 @@ import {
   MODE_META,TICKET_SOURCES,createModeSession,joinModeQueue,leaveModeQueue,
   removeModePlayer,approveSolo,pendingSolo,eligibleModePlayers,
   startModeGame,finishModeGame,closeModeSession,modeUserStatus,
-  priorityFlexPlayers,flexRecords,adjustFlexMatches
+  priorityFlexPlayers,flexRecords,adjustFlexMatches,missingModeProfiles
 } from './mode-queue.js';
 import {renderModeBoard} from './mode-render.js';
 import {getProfile} from './profiles.js';
@@ -76,8 +76,7 @@ async function perform(s,action,userId,client,source=null,name=null) {
     notice='✅ 참가 신청을 취소했습니다.';
   }else if(action==='start') {
     // 구버전에서 이미 대기하던 미등록자도 프로필을 등록해야 시작 가능.
-    const next=eligibleModePlayers(s).slice(0,MODE_META[s.mode].slots);
-    const missing=next.filter(p=>!getProfile(s.guildId,p.id));
+    const missing=missingModeProfiles(s,getProfile);
     if(missing.length)throw new Error(
       `다음 선발 예정자 ${missing.length}명의 롤 프로필이 없습니다. `+
       `(${missing.map(p=>`<@${p.id}>`).join(', ')}) /내전등록으로 등록한 뒤 시작해주세요.`);
