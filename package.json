@@ -1,10 +1,19 @@
 {
   "name": "kkamagwi-bot",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
-  "description": "까마귀봇 v3: 롤 내전 9명 모집, 프로필 등록 및 자동 명단",
-  "engines": {"node": ">=22.13"},
-  "scripts": {"start": "node src/bot.js", "register": "node src/register.js", "test": "node --test"},
-  "dependencies": {"discord.js": "^14.27.0", "dotenv": "^17.2.3"}
+  "description": "까마귀봇 v4: 내전 로테이션 + 솔랭 유료 듀오권 승인 대기열 + 자랭 무료 시참 대기열",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node src/bot.js",
+    "register": "node src/register.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.2.3"
+  }
 }
