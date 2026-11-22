@@ -1,16 +1,22 @@
-import {ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder} from 'discord.js';
+import {ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown} from 'discord.js';
 import {generalGroups,rotationMatches} from './general-queue.js';
 import {safeDiscordText} from './profile-utils.js';
 
 function button(id,label,style,disabled=false) {
   return new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style).setDisabled(disabled);
 }
+// 저장된 게임 닉네임 자체는 바꾸지 않고 Discord 마크다운만 처리한다.
+// 특히 '_'를 전각 '＿'로 치환하면 복사한 닉네임이 실제 게임 계정과 달라진다.
+export function formatGeneralNickname(value) {
+  const nickname=String(value??'').replace(/[\r\n]/g,' ');
+  return nickname.includes('`') ? escapeMarkdown(nickname) : '`'+nickname+'`';
+}
 function rosterLines(players,offset=0) {
   if (!players.length) return '없음';
   const lines=[];
   for (let i=0;i<players.length;i++) {
     const p=players[i];
-    const line=(offset+i+1)+'. <@'+p.id+'> · '+safeDiscordText(p.gameNickname);
+    const line=(offset+i+1)+'. <@'+p.id+'> · '+formatGeneralNickname(p.gameNickname);
     if (lines.join('\n').length+line.length+1>1000) {
       lines.push('… 외 '+(players.length-i)+'명');
       break;
