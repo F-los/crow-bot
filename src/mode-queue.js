@@ -106,6 +106,12 @@ export function pendingSolo(s) {
 export function eligibleModePlayers(s) {
   return s.mode==='flex'?priorityFlexPlayers(s):s.waiting.filter(p=>p.approval==='approved');
 }
+/** 구버전 대기열 등에서 프로필 미등록자가 자동 선발되지 않도록 확인. */
+export function missingModeProfiles(s,getProfile) {
+  const expected=eligibleModePlayers(s).slice(0,MODE_META[s.mode].slots);
+  return expected.filter(p=>!getProfile(s.guildId,p.id));
+}
+
 export function startModeGame(s,now=Date.now()) {
   assertOpen(s);
   if(s.phase==='playing') throw new Error('현재 게임 중입니다. 게임 종료를 먼저 처리해주세요.');
