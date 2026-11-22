@@ -40,8 +40,36 @@ export function createGeneralSession(guildId,channelId,id,gameName,capacity,matc
   return {
     id,guildId,channelId,messageId:null,gameName:name,capacity,rotationMatches:matches,
     status:'open',createdAt:now,confirmedAt:null,closedAt:null,
-    rotationIndex:0,currentIds:[],nextSequence:0,applicants:[],
+    rotationIndex:0,currentIds:[],nextSequence:0,applicants:[],savedApplicants:{},
   };
+}
+// 모집 중 제외되어도 참가 신청 정보는 유지한다. 이전 버전의 신청자도 자동으로 읽는다.
+export function savedGeneralInfo(session,userId) {
+  const saved=session.savedApplicants?.[userId]
+    ?? session.applicants.find(p=>p.id===userId);
+  return saved?{gameNickname:saved.gameNickname,extraInfo:saved.extraInfo??''}:null;
+}
+function saveGeneralInfo(session,userId,details) {
+  session.savedApplicants??={};
+  session.savedApplicants[userId]={gameNickname:details.gameNickname,extraInfo:details.extraInfo};
+}
+export function joinSavedGeneralSession(session,userId,displayName,now=Date.now()) {
+  requireActive(session);
+  if (session.applicants.some(p=>p.id===userId)) {
+    throw new Error('이미 신청한 사용자입니다. 내 정보 수정 버튼을 이용해주세요.');
+  }
+  const details=savedGeneralInfo(session,userId);
+  if (!details) throw new Error('저장된 참가 정보가 없습니다. 최초 참가 신청부터 진행해주세요.');
+  return joinGeneralSession(session,userId,displayName,details.gameNickname,details.extraInfo,now);
+}
+export function editSavedGeneralInfo(session,userId,displayName,gameNickname,extraInfo='') {
+  requireActive(session);
+  const existing=session.applicants.find(p=>p.id===userId);
+  if (existing) return editGeneralApplicant(session,userId,displayName,gameNickname,extraInfo);
+  if (!savedGeneralInfo(session,userId)) throw new Error('저장된 참가 정보가 없습니다. 먼저 참가 신청해주세요.');
+  const details=normalizeApplicant(gameNickname,extraInfo);
+  saveGeneralInfo(session,userId,details);
+  return details;
 }
 export function orderedGeneralApplicants(session) {
   return [...session.applicants].sort((a,b)=>a.sequence-b.sequence);
@@ -79,6 +107,7 @@ export function joinGeneralSession(session,userId,displayName,gameNickname,extra
     ...details,sequence:session.nextSequence,joinedAt:now,
   };
   session.applicants.push(player);
+  saveGeneralInfo(session,userId,details);
   return player;
 }
 function requireWaitingOrOpen(session,userId) {
@@ -95,12 +124,15 @@ export function editGeneralApplicant(session,userId,displayName,gameNickname,ext
   player.displayName=String(displayName??player.displayName).slice(0,100);
   player.gameNickname=details.gameNickname;
   player.extraInfo=details.extraInfo;
+  saveGeneralInfo(session,userId,details);
   return player;
 }
 export function leaveGeneralSession(session,userId) {
   requireWaitingOrOpen(session,userId);
   const index=session.applicants.findIndex(p=>p.id===userId);
   if (index<0) throw new Error('현재 신청 명단에 없습니다.');
+  const player=session.applicants[index];
+  if (!session.savedApplicants?.[userId]) saveGeneralInfo(session,userId,player);
   return session.applicants.splice(index,1)[0];
 }
 export function confirmGeneralSession(session,now=Date.now()) {
@@ -124,6 +156,10 @@ export function nextGeneralRotation(session,now=Date.now()) {
   if (!session || session.status!=='confirmed') throw new Error('명단 확정 후 다음 로테이션을 진행할 수 있습니다.');
   const groups=generalGroups(session);
   if (!groups.confirmed.length) throw new Error('현재 확정된 참가자가 없습니다.');
+  // 기존 버전에서 등록된 사용자도 로테이션 전에 정보 보관. 현재 신청 명단과 저장 정보는 분리한다.
+  for (const p of session.applicants) {
+    if (!session.savedApplicants?.[p.id]) saveGeneralInfo(session,p.id,p);
+  }
   // 진행을 마친 확정 인원은 완전히 제외한다. 재참여하려면 새로 신청해야 한다.
   const completedIds=new Set(groups.confirmed.map(p=>p.id));
   session.applicants=session.applicants.filter(p=>!completedIds.has(p.id));

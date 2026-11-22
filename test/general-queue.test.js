@@ -4,6 +4,7 @@ import {
   createGeneralSession,joinGeneralSession,editGeneralApplicant,
   leaveGeneralSession,orderedGeneralApplicants,generalGroups,generalPosition,
   closeGeneralSession,confirmGeneralSession,unconfirmGeneralSession,nextGeneralRotation,rotationMatches,
+  savedGeneralInfo,joinSavedGeneralSession,editSavedGeneralInfo,
 } from '../src/general-queue.js';
 
 const fresh=(cap=2)=>createGeneralSession('guild','channel','general-session','배틀그라운드',cap,2,100);
@@ -209,4 +210,79 @@ test('대기자가 모자라도 기존 확정팀은 모두 제외되고 신규 �
   assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u4']);
   assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u1']);
   assert.equal(generalPosition(s,'u2'),null);
+});
+
+
+test('첫 신청 정보는 로테이션 제외 뒤에도 남고 버튼 재신청은 같은 정보를 사용한다',()=>{
+  const s=fresh(2);
+  const first=joinGeneralSession(s,'a','첫째','배그닉#1','스팀 친구코드',111);
+  joinGeneralSession(s,'b','둘째','배그닉#2','',112);
+  joinGeneralSession(s,'c','셋째','배그닉#3','',113);
+  assert.deepEqual(savedGeneralInfo(s,'a'),{gameNickname:'배그닉#1',extraInfo:'스팀 친구코드'});
+  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['a','b']);
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['c']);
+  assert.equal(generalPosition(s,'a'),null);
+  assert.deepEqual(orderedGeneralApplicants(s).map(p=>p.id),['c']);
+  const again=joinSavedGeneralSession(s,'a','첫째(재참여)',1000);
+  assert.equal(again.gameNickname,'배그닉#1');
+  assert.equal(again.extraInfo,'스팀 친구코드');
+  assert.equal(again.joinedAt,1000);
+  assert.ok(again.sequence>first.sequence);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['a']);
+  assert.throws(()=>joinSavedGeneralSession(s,'a','첫째'),/이미 신청/);
+});
+test('내 정보 수정은 저장 정보를 갱신하고 다음 재신청에서도 새 정보를 불러온다',()=>{
+  const s=fresh(1);
+  joinGeneralSession(s,'a','사용자','원래 닉','원래 메모');
+  editGeneralApplicant(s,'a','사용자','수정된 닉','수정된 메모');
+  assert.deepEqual(savedGeneralInfo(s,'a'),{gameNickname:'수정된 닉',extraInfo:'수정된 메모'});
+  confirmGeneralSession(s);
+  nextGeneralRotation(s);
+  const next=joinSavedGeneralSession(s,'a','사용자');
+  assert.equal(next.gameNickname,'수정된 닉');
+  assert.equal(next.extraInfo,'수정된 메모');
+});
+test('대기열에서 제외된 상태로 정보 수정해도 자동 재신청되지 않는다',()=>{
+  const s=fresh(1);
+  joinGeneralSession(s,'a','사용자','기존 닉','메모');
+  confirmGeneralSession(s);
+  nextGeneralRotation(s);
+  editSavedGeneralInfo(s,'a','사용자','변경 닉','새 메모');
+  assert.deepEqual(s.applicants,[]);
+  assert.equal(generalPosition(s,'a'),null);
+  assert.deepEqual(savedGeneralInfo(s,'a'),{gameNickname:'변경 닉',extraInfo:'새 메모'});
+  assert.throws(()=>editSavedGeneralInfo(s,'unknown','새 사용자','닉'),/저장된 참가 정보가 없습니다/);
+  assert.throws(()=>joinSavedGeneralSession(s,'unknown','새 사용자'),/저장된 참가 정보가 없습니다/);
+  const next=joinSavedGeneralSession(s,'a','사용자');
+  assert.equal(next.gameNickname,'변경 닉');
+  assert.equal(next.extraInfo,'새 메모');
+});
+test('과거 모집 데이터도 다음 로테이션에서 정보를 자동 보관한다',()=>{
+  const s=fresh(1);
+  joinGeneralSession(s,'a','A','기존 닉','예전 메모');
+  joinGeneralSession(s,'b','B','대기 닉','대기 메모');
+  delete s.savedApplicants; // v4.5.1 이전에 저장된 JSON
+  confirmGeneralSession(s);
+  assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['b']);
+  assert.deepEqual(savedGeneralInfo(s,'a'),{gameNickname:'기존 닉',extraInfo:'예전 메모'});
+  const again=joinSavedGeneralSession(s,'a','A');
+  assert.equal(again.gameNickname,'기존 닉');
+  assert.equal(again.extraInfo,'예전 메모');
+});
+test('신청 취소 후에도 저장 정보로 재신청되며 새 모집에는 전파되지 않는다',()=>{
+  const s=fresh(2);
+  joinGeneralSession(s,'a','A','닌텐도닉','SW-123');
+  leaveGeneralSession(s,'a');
+  assert.deepEqual(savedGeneralInfo(s,'a'),{gameNickname:'닌텐도닉',extraInfo:'SW-123'});
+  joinSavedGeneralSession(s,'a','A');
+  assert.equal(s.applicants.length,1);
+  const another=fresh(2);
+  assert.equal(savedGeneralInfo(another,'a'),null);
+});
+test('저장 정보가 있는 참가자도 중복 신청을 하면 순서가 변하지 않는다',()=>{
+  const s=fresh(2);
+  const first=joinGeneralSession(s,'a','A','닉A');
+  assert.throws(()=>joinSavedGeneralSession(s,'a','A'),/이미 신청/);
+  assert.equal(s.applicants.length,1);
+  assert.equal(s.applicants[0].sequence,first.sequence);
 });
