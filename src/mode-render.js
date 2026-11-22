@@ -53,10 +53,12 @@ export function renderModeBoard(session) {
     button(`${key}:roulette:${sid}`,'룰렛 듀오권 신청',ButtonStyle.Success,closed),
     button(`${key}:leave:${sid}`,'신청 취소',ButtonStyle.Secondary,closed),
     button(`${key}:status:${sid}`,'내 대기 현황',ButtonStyle.Primary),
+    button(`${key}:profile:${sid}`,'내 정보 수정',ButtonStyle.Secondary,closed),
   ]:[
     button(`${key}:join:${sid}`,'시참 신청',ButtonStyle.Success,closed),
     button(`${key}:leave:${sid}`,'신청 취소',ButtonStyle.Secondary,closed),
     button(`${key}:status:${sid}`,'내 대기 현황',ButtonStyle.Primary),
+    button(`${key}:profile:${sid}`,'내 정보 수정',ButtonStyle.Secondary,closed),
   ]);
   const adminButtons=[
     ...(solo?[button(`${key}:approve:${sid}`,'승인 관리',ButtonStyle.Secondary,closed)]:[]),
