@@ -13,6 +13,7 @@ import { renderBoard } from './render.js';
 import { getProfile,markOnnjRegistered,restoreOnnjStatuses } from './profiles.js';
 import { beginGame as beginGameSafe } from './game-service.js';
 import { beginRegistration,formatOwnProfile,handleRegistrationInteraction } from './registration.js';
+import {handleModeCommand,handleModeButton,handleModeSelect} from './mode-controller.js';
 
 const {DISCORD_TOKEN}=process.env;
 if(!DISCORD_TOKEN) throw new Error('.env에 DISCORD_TOKEN을 설정하세요.');
@@ -178,7 +179,7 @@ async function handleSelect(i){
   }
 }
 client.once(Events.ClientReady,async ready=>{
-  console.log(`🐦‍⬛ 까마귀봇 v3 로그인 완료: ${ready.user.tag}`);
+  console.log(`🐦‍⬛ 까마귀봇 v4 로그인 완료: ${ready.user.tag}`);
   if(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_GUILD_ID){
     try{await import('./register.js');}
     catch(error){console.error('새 슬래시 명령어 자동 등록 실패:',error);}
@@ -191,9 +192,15 @@ client.on(Events.InteractionCreate,async(i)=>{
   const button=i.isButton()&&i.customId.startsWith('crow:');
   const select=i.isStringSelectMenu()&&i.customId.startsWith('crow:');
   const registration=(i.isButton()||i.isModalSubmit())&&i.customId.startsWith('crowv3:');
-  if(!command&&!button&&!select&&!registration)return;
+  const modeCommand=i.isChatInputCommand()&&['솔랭','자랭'].includes(i.commandName);
+  const modeButton=i.isButton()&&i.customId.startsWith('crowv4:');
+  const modeSelect=i.isStringSelectMenu()&&i.customId.startsWith('crowv4:');
+  if(!command&&!button&&!select&&!registration&&!modeCommand&&!modeButton&&!modeSelect)return;
   try{
-    if(registration){
+    if(modeCommand)await handleModeCommand(i,client,requireAdmin);
+    else if(modeButton)await handleModeButton(i,client,requireAdmin);
+    else if(modeSelect)await handleModeSelect(i,client,requireAdmin);
+    else if(registration){
       const result=await handleRegistrationInteraction(i);
       if(result?.registered && result.sessionId){const s=getGuild(result.guildId).active;
         if(s?.id===result.sessionId)await safeRefresh(s);}

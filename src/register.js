@@ -20,6 +20,22 @@ const commands=[command,
   new SlashCommandBuilder().setName('내전수정').setDescription('내 롤 프로필 수정'),
   new SlashCommandBuilder().setName('내전정보').setDescription('내 롤 프로필 확인'),
 ];
+// v4: 내전과 독립적인 솔랭 듀오/자랭 시참 대기열
+function modeCommands(name,description) {
+  return new SlashCommandBuilder().setName(name).setDescription(description)
+    .addSubcommand(s=>s.setName('모집').setDescription('새 모집판 생성 (관리자)'))
+    .addSubcommand(s=>s.setName('현황').setDescription('현재 대기열 및 게임 현황'))
+    .addSubcommand(s=>s.setName('시작').setDescription('대기열에서 참가자를 확정하고 게임 시작 (관리자)'))
+    .addSubcommand(s=>s.setName('게임종료').setDescription('이번 게임을 종료하고 참가자를 자동 제외 (관리자)'))
+    .addSubcommand(s=>s.setName('제외').setDescription('대기열에서 사용자 제외 (관리자)')
+      .addUserOption(o=>o.setName('유저').setDescription('제외할 사용자').setRequired(true)))
+    .addSubcommand(s=>s.setName('종료').setDescription('모집판 종료 및 기록 보관 (관리자)'));
+}
+const solo=modeCommands('솔랭','5,000원/룰렛 듀오권 확인 후 솔랭 듀오 대기열 관리')
+  .addSubcommand(s=>s.setName('승인').setDescription('듀오권 확인 후 신청 승인 (관리자)')
+    .addUserOption(o=>o.setName('유저').setDescription('승인할 사용자').setRequired(true)));
+const flex=modeCommands('자랭','무료 자랭 시참: 스트리머+시청자 4명 모집');
+commands.push(solo,flex);
 const rest=new REST({version:'10'}).setToken(DISCORD_TOKEN);
 await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID,DISCORD_GUILD_ID),{body:commands.map(c=>c.toJSON())});
-console.log('✅ 까마귀봇 v3 /내전, /내전등록, /내전수정, /내전정보 명령어 등록 완료');
+console.log('✅ 까마귀봇 v4 /내전, /내전등록, /내전수정, /내전정보, /솔랭, /자랭 명령어 등록 완료');
