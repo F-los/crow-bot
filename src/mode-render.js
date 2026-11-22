@@ -46,12 +46,12 @@ export function renderModeBoard(session) {
   const key=`crowv4:${session.mode}`;
   const sid=session.id;
   const userRow=new ActionRowBuilder().addComponents(solo?[
-    button(`${key}:donation:${sid}`,'5,000원 듀오 신청',ButtonStyle.Success,closed),
+    button(`${key}:donation:${sid}`,'듀오 신청',ButtonStyle.Success,closed),
     button(`${key}:roulette:${sid}`,'룰렛 듀오권 신청',ButtonStyle.Success,closed),
     button(`${key}:leave:${sid}`,'신청 취소',ButtonStyle.Secondary,closed),
     button(`${key}:status:${sid}`,'내 대기 현황',ButtonStyle.Primary),
   ]:[
-    button(`${key}:join:${sid}`,'무료 시참 신청',ButtonStyle.Success,closed),
+    button(`${key}:join:${sid}`,'시참 신청',ButtonStyle.Success,closed),
     button(`${key}:leave:${sid}`,'신청 취소',ButtonStyle.Secondary,closed),
     button(`${key}:status:${sid}`,'내 대기 현황',ButtonStyle.Primary),
   ]);
