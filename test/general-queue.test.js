@@ -119,7 +119,7 @@ test('확정 버튼은 신청자가 한 명도 없을 때 막는다',()=>{
   assert.equal(s.status,'open');
 });
 
-test('로테이션 판수는 안내용이며 판별 카운터 없이 다음 팀을 확정한다',()=>{
+test('로테이션 판수는 안내용이며 다음 로테이션은 명단 확정 없이 예상 참가자만 올린다',()=>{
   const s=createGeneralSession('guild','channel','rotation','배틀그라운드',2,3,100);
   assert.equal(rotationMatches(s),3);
   for(let i=1;i<=5;i++)joinGeneralSession(s,'u'+i,'유저'+i,'닉'+i,'',100+i);
@@ -127,17 +127,25 @@ test('로테이션 판수는 안내용이며 판별 카운터 없이 다음 팀�
   assert.equal(s.rotationIndex,1);
   assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u3','u4']);
   assert.equal(s.rotationIndex,2);
+  assert.equal(s.status,'open');
+  assert.equal(s.confirmedAt,null);
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u3','u4']);
   assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u5']);
+  assert.throws(()=>nextGeneralRotation(s),/명단 확정/);
+  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['u3','u4']);
   assert.deepEqual(orderedGeneralApplicants(s).map(p=>p.id),['u3','u4','u5']); // u1/u2 완전 제외
   assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u5']);
   assert.equal(s.rotationIndex,3);
+  assert.equal(s.status,'open');
   assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),[]);
   assert.deepEqual(orderedGeneralApplicants(s).map(p=>p.id),['u5']); // u3/u4 완전 제외
   joinGeneralSession(s,'u1','첫째','재신청 닉');
   joinGeneralSession(s,'u2','둘째','재신청 닉');
   assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u1','u2']);
+  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['u5']);
   assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u1','u2']);
   assert.equal(s.rotationIndex,4);
+  assert.equal(s.status,'open');
   assert.equal(generalPosition(s,'u5'),null);
   assert.equal(rotationMatches(s),3); // 게임 판수는 추적하지 않음
 });
@@ -150,6 +158,8 @@ test('현재 팀 확정 중에도 새로 들어온 신청자는 대기하며 다
   assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['a']);
   assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['b','c']);
   assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['b','c']);
+  assert.equal(s.status,'open');
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['b','c']);
 });
 test('대기자가 없어도 이전 확정팀을 제외하고 모집 재개하여 재신청할 수 있다',()=>{
   const s=fresh(2);
@@ -200,15 +210,18 @@ test('과거 v4.4.1 확정팀은 정원 미달이어도 새 신청자가 기존 
   assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['b']);
 });
 
-test('대기자가 모자라도 기존 확정팀은 모두 제외되고 신규 신청은 대기로 들어간다',()=>{
+test('대기자가 모자라면 새 신청자가 예상 참가자 빈자리를 채운다',()=>{
   const s=fresh(3);
   for(let i=1;i<=4;i++)joinGeneralSession(s,'u'+i,'이름'+i,'닉'+i);
   confirmGeneralSession(s);
   assert.deepEqual(nextGeneralRotation(s).map(p=>p.id),['u4']);
   assert.deepEqual(s.applicants.map(p=>p.id),['u4']);
   joinGeneralSession(s,'u1','이름1','재신청1');
-  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u4']);
-  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['u1']);
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u4','u1']);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),[]);
+  assert.equal(s.status,'open');
+  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['u4','u1']);
+  assert.equal(s.status,'confirmed');
   assert.equal(generalPosition(s,'u2'),null);
 });
 
@@ -228,7 +241,8 @@ test('첫 신청 정보는 로테이션 제외 뒤에도 남고 버튼 재신청
   assert.equal(again.extraInfo,'스팀 친구코드');
   assert.equal(again.joinedAt,1000);
   assert.ok(again.sequence>first.sequence);
-  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['a']);
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['c','a']);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),[]);
   assert.throws(()=>joinSavedGeneralSession(s,'a','첫째'),/이미 신청/);
 });
 test('내 정보 수정은 저장 정보를 갱신하고 다음 재신청에서도 새 정보를 불러온다',()=>{
@@ -285,4 +299,21 @@ test('저장 정보가 있는 참가자도 중복 신청을 하면 순서가 변
   assert.throws(()=>joinSavedGeneralSession(s,'a','A'),/이미 신청/);
   assert.equal(s.applicants.length,1);
   assert.equal(s.applicants[0].sequence,first.sequence);
+});
+
+test('예상 참가자 단계에서는 확정 전 신청 취소·제외도 순번대로 반영된다',()=>{
+  const s=fresh(3);
+  for(let i=1;i<=6;i++)joinGeneralSession(s,'u'+i,'이름'+i,'닉'+i);
+  confirmGeneralSession(s);
+  nextGeneralRotation(s);
+  assert.equal(s.status,'open');
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u4','u5','u6']);
+  leaveGeneralSession(s,'u4');
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u5','u6']);
+  const x=joinSavedGeneralSession(s,'u1','첫째 재신청');
+  assert.equal(x.gameNickname,'닉1');
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['u5','u6','u1']);
+  assert.deepEqual(confirmGeneralSession(s).map(p=>p.id),['u5','u6','u1']);
+  assert.throws(()=>leaveGeneralSession(s,'u1'),/현재 확정된 참가자/);
+  assert.equal(s.rotationIndex,2);
 });
