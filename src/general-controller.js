@@ -9,6 +9,7 @@ import {
   joinGeneralSession,editGeneralApplicant,leaveGeneralSession,closeGeneralSession,
 } from './general-queue.js';
 import {renderGeneralBoard} from './general-render.js';
+import {safeDiscordText} from './profile-utils.js';
 
 const editJobs=new Map();
 function currentSession(interaction) {
@@ -52,7 +53,7 @@ function userStatus(session,userId) {
   const position=generalPosition(session,userId);
   if (!position) return '현재 신청하지 않았습니다.';
   const p=session.applicants.find(p=>p.id===userId);
-  return '🎮 **'+session.gameName+'** · 게임 닉네임: **'+p.gameNickname.replaceAll('*','＊')+'**\n'
+  return '🎮 **'+safeDiscordText(session.gameName)+'** · 게임 닉네임: **'+safeDiscordText(p.gameNickname)+'**\n'
     +'신청 순서 **'+position.position+'번째** · '+(position.confirmed?'✅ 확정 참가자':'⏳ 대기 '+(position.position-session.capacity)+'순위');
 }
 function modalFor(session,userId,edit) {
