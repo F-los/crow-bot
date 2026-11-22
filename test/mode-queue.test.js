@@ -66,7 +66,7 @@ test('신청 취소, 모집 종료 후 방어 로직',()=>{
   closeModeSession(session,100);
   assert.equal(session.status,'closed');
   assert.throws(()=>joinModeQueue(session,'u','유저'),/이미 종료/);
-  assert.throws(()=>startModeGame(session),/진행 중인 모집/);
+  assert.throws(()=>startModeGame(session),/이미 종료/);
 });
 test('게임 중 모집 종료를 방지한다',()=>{
   const session=s('solo');
