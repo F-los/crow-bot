@@ -36,3 +36,21 @@ export function rosterForBoard(session, players, playing, getProfile) {
   const roster=buildRoster(session,players,getProfile);
   return playing ? sortConfirmedRoster(roster) : roster;
 }
+
+/**
+ * 운영 중 모집판만 최신 프로필을 표시한다.
+ * 게임 시작 당시의 신규/기존, 판수, 참가 순서 스냅샷은 그대로 두고
+ * 롤 ID·티어·선호 라인만 갱신한다. 저장된 경기 이력은 변경하지 않는다.
+ */
+export function liveRosterForBoard(session, players, playing, getProfile) {
+  const roster=rosterForBoard(session,players,playing,getProfile);
+  if(!playing)return roster;
+  return roster.map(row=>{
+    const profile=getProfile(session.guildId,row.id);
+    if(!profile)return row;
+    return {...row,riotId:profile.riotId,
+      current:rankLabel(profile.currentTier,profile.currentDivision,profile.currentLp),
+      peak:rankLabel(profile.peakTier,profile.peakDivision,profile.peakLp),
+      lanes:preferredLanes(profile.lanes)};
+  });
+}
