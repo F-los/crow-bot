@@ -41,7 +41,7 @@ test('명단 확정 버튼을 누른 뒤 확정 상태와 해제 버튼이 표�
   assert.equal(board.components[0].components[0].data.disabled,false);
   assert.equal(board.components[0].components[1].data.disabled,false);
   assert.equal(board.components[0].components[2].data.disabled,false);
-  assert.equal(board.components[1].components[3].data.disabled,true); // 대기자가 없으면 다음 로테이션 불가
+  assert.equal(board.components[1].components[3].data.disabled,false); // 대기자가 없어도 다음 모집으로 넘어갈 수 있음
   assert.equal(board.components[1].components[2].data.label,'확정 취소');
   assert.equal(board.components[1].components[2].data.disabled,false);
   unconfirmGeneralSession(s);
@@ -67,4 +67,19 @@ test('모집판은 안내용 판수와 로테이션 버튼을 표시하며 확�
   assert.match(board.embeds[0].toJSON().fields[0].value,/현재 \*\*2회차\*\*/);
   assert.match(board.embeds[0].toJSON().fields[1].value,/닉3/);
   assert.doesNotMatch(board.embeds[0].toJSON().fields[1].value,/닉2/);
+});
+
+test('대기자가 0명이어도 다음 로테이션 버튼으로 이전 팀을 제외하고 새 모집을 연다',()=>{
+  const s=createGeneralSession('g','c','id','배틀그라운드',3,2);
+  joinGeneralSession(s,'1','첫째','닉1');
+  confirmGeneralSession(s);
+  let board=renderGeneralBoard(s);
+  assert.equal(board.components[1].components[3].data.disabled,false);
+  assert.match(board.embeds[0].toJSON().footer.text,/명단에서 제외/);
+  nextGeneralRotation(s);
+  board=renderGeneralBoard(s);
+  assert.equal(board.components[1].components[3].data.disabled,true);
+  assert.equal(board.components[0].components[0].data.disabled,false);
+  assert.equal(board.components[1].components[2].data.label,'명단 확정');
+  assert.equal(s.applicants.length,0);
 });
