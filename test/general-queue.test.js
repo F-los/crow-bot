@@ -167,3 +167,14 @@ test('로테이션 판수 범위 검증',()=>{
   assert.throws(()=>createGeneralSession('g','c','id','게임',2,0),/로테이션 판수/);
   assert.throws(()=>createGeneralSession('g','c','id','게임',2,31),/로테이션 판수/);
 });
+
+test('과거 v4.4.1 확정팀은 정원 미달이어도 새 신청자가 기존 팀에 섞이지 않는다',()=>{
+  const s=fresh(3);
+  joinGeneralSession(s,'a','A','닉A');
+  confirmGeneralSession(s);
+  delete s.currentIds; // 실제 구버전 저장 데이터
+  joinGeneralSession(s,'b','B','닉B');
+  assert.deepEqual(s.currentIds,['a']);
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['a']);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['b']);
+});
