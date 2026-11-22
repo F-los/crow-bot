@@ -153,7 +153,7 @@ export function modeUserStatus(s,userId) {
   const count=record?.matchesPlayed??0;
   const current=s.current.find(p=>p.id===userId);
   if(current)return s.mode==='flex'
-    ? `🎮 ${s.round}판 참가 중 | 자랭 참여 ${count}판\\n게임 종료 후 다시 신청할 수 있습니다.`
+    ? `🎮 ${s.round}판 참가 중 | 자랭 참여 ${count}판\n게임 종료 후 다시 신청할 수 있습니다.`
     : `🎮 ${s.round}판 참가 중입니다. 게임 종료 후 다시 신청할 수 있습니다.`;
   const p=s.waiting.find(p=>p.id===userId);
   if(!p)return s.mode==='flex'
