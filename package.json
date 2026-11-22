@@ -1,9 +1,9 @@
 {
   "name": "kkamagwi-bot",
-  "version": "4.4.1",
+  "version": "4.5.0",
   "private": true,
   "type": "module",
-  "description": "까마귀봇 v4.4.1: 종합게임 관리자 명단 확정과 기존 롤 모드",
+  "description": "까마귀봇 v4.5: 종합게임 안내용 로테이션 판수와 다음 팀 확정",
   "engines": {
     "node": ">=22.13"
   },
