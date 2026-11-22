@@ -4,7 +4,7 @@ import {
   ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle,
 } from 'discord.js';
 import { getGuild, persist } from './store.js';
-import { joinSession } from './rotation.js';
+import {enrollAfterRegistration} from './registration-target.js';
 import { getProfile, saveProfile } from './profiles.js';
 import { TIERS, TIER_LABELS, LANES, LANE_LABELS, isHighTier, hasDivision,
   rankLabel, preferredLanes, validateProfile, validateRiotId, safeDiscordText } from './profile-utils.js';
@@ -31,7 +31,7 @@ function textLabel(label,id,placeholder,value,maxLength=64) {
 }
 function modal1(token,profile) {
   const ranks=(selected)=>TIERS.map(t=>({label:TIER_LABELS[t],value:t,default:t===selected}));
-  return new ModalBuilder().setCustomId(`crowv3:profile:${token}`).setTitle('까마귀봇 v3 · 내전 참가 등록')
+  return new ModalBuilder().setCustomId(`crowv3:profile:${token}`).setTitle('까마귀봇 · 공통 롤 프로필 등록')
     .addLabelComponents(
       textLabel('롤 계정 (닉네임#태그)','v3_riot','까마귀#KR1',profile?.riotId,32),
       selectLabel('현재 티어','v3_current',ranks(profile?.currentTier)),
@@ -40,7 +40,7 @@ function modal1(token,profile) {
     );
 }
 function modal2(token,p) {
-  const modal=new ModalBuilder().setCustomId(`crowv3:details:${token}`).setTitle('까마귀봇 v3 · 티어 세부 정보');
+  const modal=new ModalBuilder().setCustomId(`crowv3:details:${token}`).setTitle('까마귀봇 · 롤 티어 세부 정보');
   for(const [which,tier,division,lp] of [
     ['현재',p.currentTier,p.currentDivision,p.currentLp], ['최고',p.peakTier,p.peakDivision,p.peakLp]
   ]) {
@@ -63,9 +63,9 @@ function preview(p) {
     `현재 티어: ${rankLabel(p.currentTier,p.currentDivision,p.currentLp)}\n`+
     `최고 티어: ${rankLabel(p.peakTier,p.peakDivision,p.peakLp)}\n`+
     `선호 라인: ${preferredLanes(p.lanes)}\n\n`+
-    '저장하면 이후 내전부터 다시 입력할 필요가 없습니다.';
+    '저장하면 이후 내전·솔랭 듀오·자랭에서 다시 입력할 필요가 없습니다.';
 }
-export async function beginRegistration(interaction, sessionId=null, edit=false) {
+export async function beginRegistration(interaction, sessionId=null, edit=false, queueContext=null) {
   if(!interaction.guildId) throw new Error('디스코드 서버에서만 사용할 수 있습니다.');
   const old=getProfile(interaction.guildId,interaction.user.id);
   if(edit&&!old) throw new Error('저장된 프로필이 없습니다. /내전등록 또는 참가 신청부터 진행해주세요.');
@@ -75,6 +75,7 @@ export async function beginRegistration(interaction, sessionId=null, edit=false)
   }
   const token=randomUUID().slice(0,12);
   pending.set(token,{token,userId:interaction.user.id,guildId:interaction.guildId,sessionId,
+    queueMode:queueContext?.mode??null,queueSource:queueContext?.source??null,
     startedAt:Date.now(),createdAt:Date.now(),form:old?{...old}:null,edit});
   await interaction.showModal(modal1(token,old));
 }
@@ -120,18 +121,18 @@ export async function handleRegistrationInteraction(interaction) {
     if(!p.form) throw new Error('등록 정보가 없습니다. 처음부터 다시 진행해주세요.');
     const saved=saveProfile(p.guildId,p.userId,p.form);
     pending.delete(token);
-    let notice='';
-    if(p.sessionId){
-      const session=getGuild(p.guildId).active;
-      if(session?.status==='open' && session.id===p.sessionId) {
-        try {joinSession(session,p.userId,interaction.member?.nickname||interaction.user.globalName||interaction.user.username,p.startedAt);persist();
-          notice='\n✅ 내전 참가 신청도 자동 완료되었습니다.';
-        }catch(e){notice=`\n⚠️ 프로필은 저장됐지만 참가 신청은 완료되지 않았습니다: ${e.message}`;}
-      }else notice='\nℹ️ 모집이 종료돼 프로필만 저장됐습니다.';
-    }
-    await interaction.update({content:`✅ **등록 완료**\n${preview(saved)}${notice}`,components:[]});
-    // 패널 업데이트는 후속 처리 가능; 등록 자체는 위 단계에서 확정됨.
-    return {registered:true,sessionId:p.sessionId,guildId:p.guildId};
+    const result=enrollAfterRegistration(
+      getGuild(p.guildId),
+      {sessionId:p.sessionId,mode:p.queueMode,source:p.queueSource},
+      p.userId,
+      interaction.member?.nickname||interaction.user.globalName||interaction.user.username,
+      p.startedAt,
+    );
+    if(result.joined)persist();
+    await interaction.update({content:`✅ **등록 완료**\n${preview(saved)}${result.notice}`,components:[]});
+    // 프로필 저장 및 큐 참가 후 기존 모집판을 갱신한다.
+    return {registered:true,sessionId:p.sessionId,mode:p.queueMode,
+      guildId:p.guildId,userId:p.userId};
   }
   return true;
 }
