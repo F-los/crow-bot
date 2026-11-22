@@ -67,6 +67,10 @@ export function generalPosition(session,userId) {
 }
 export function joinGeneralSession(session,userId,displayName,gameNickname,extraInfo='',now=Date.now()) {
   requireActive(session);
+  // v4.4.1에서 이미 확정한 팀도 신규 신청 전에 명단을 고정한다.
+  if (session.status==='confirmed' && !session.currentIds?.length) {
+    session.currentIds=generalGroups(session).confirmed.map(p=>p.id);
+  }
   if (session.applicants.some(p=>p.id===userId)) throw new Error('이미 신청한 사용자입니다. 정보 수정 버튼을 이용해주세요.');
   const details=normalizeApplicant(gameNickname,extraInfo);
   session.nextSequence=Math.max(session.nextSequence??0,...session.applicants.map(p=>p.sequence??0))+1;
