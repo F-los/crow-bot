@@ -15,6 +15,9 @@ export function enrollAfterRegistration(guild, context, userId, displayName, now
     (mode!==null && session.mode!==mode)) {
     return {joined:false,notice:'\nℹ️ 기존 모집이 종료되거나 변경되어 프로필만 저장됐습니다. 현재 모집판에서 다시 신청해주세요.'};
   }
+  // 이전 버전에서 이미 신청한 사람의 선착순/판수 대기 위치는 바꾸지 않는다.
+  if(mode && session.waiting.some(player=>player.id===userId))
+    return {joined:false,session,notice:'\n✅ 이미 신청된 대기열은 그대로 유지됩니다. 롤 프로필 등록이 완료됐습니다.'};
   try {
     if(mode)joinModeQueue(session,userId,displayName,source,now);
     else joinSession(session,userId,displayName,now);
