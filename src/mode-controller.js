@@ -8,6 +8,8 @@ import {
   priorityFlexPlayers,flexRecords,adjustFlexMatches
 } from './mode-queue.js';
 import {renderModeBoard} from './mode-render.js';
+import {getProfile} from './profiles.js';
+import {beginRegistration} from './registration.js';
 
 const editJobs=new Map();
 function currentSession(i,mode) {
@@ -32,7 +34,7 @@ async function refresh(s,client) {
   editJobs.set(key,promise);
   return promise;
 }
-async function safeRefresh(s,client) {
+export async function safeRefresh(s,client) {
   try {await refresh(s,client);return '';}
   catch(e) {console.error('v4 모집판 갱신 실패',e);return '\n⚠️ 저장은 완료됐지만 모집판 표시가 갱신되지 않았습니다. 메시지 권한을 확인해주세요.';}
 }
@@ -73,6 +75,12 @@ async function perform(s,action,userId,client,source=null,name=null) {
     leaveModeQueue(s,userId);
     notice='✅ 참가 신청을 취소했습니다.';
   }else if(action==='start') {
+    // 구버전에서 이미 대기하던 미등록자도 프로필을 등록해야 시작 가능.
+    const next=eligibleModePlayers(s).slice(0,MODE_META[s.mode].slots);
+    const missing=next.filter(p=>!getProfile(s.guildId,p.id));
+    if(missing.length)throw new Error(
+      `다음 선발 예정자 ${missing.length}명의 롤 프로필이 없습니다. `+
+      `(${missing.map(p=>`<@${p.id}>`).join(', ')}) /내전등록으로 등록한 뒤 시작해주세요.`);
     const selected=startModeGame(s);
     notice=`🎮 **${s.mode==='solo'?'듀오 시작':'자랭 팀 확정'}** · ${s.round}판\n${selected.map(p=>`<@${p.id}>`).join(', ')}\n※ ${s.mode==='solo'?'사용권 처리 및 실제 게임 진행은 관리자가 확인해주세요.':'스트리머 포함 5명입니다.'}`;
   }else if(action==='finish') {
@@ -166,6 +174,15 @@ export async function handleModeButton(i,client,requireAdmin) {
     await i.reply({content:action==='approve'?'승인할 듀오 참가자를 선택하세요.':action==='count'?'판수를 변경할 자랭 참가자를 선택하세요.':'대기열에서 제외할 사람을 선택하세요.',
       components:[queueSelect(s,action)],flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
     return;
+  }
+  if(action==='donation'||action==='roulette'||action==='join'){
+    const source=action==='join'?null:action;
+    if(s.mode==='solo' && !source)throw new Error('듀오권 획득 방법을 선택해주세요.');
+    if(s.mode==='flex' && source)throw new Error('자랭은 무료 시참으로 신청해주세요.');
+    if(!getProfile(i.guildId,i.user.id)){
+      await beginRegistration(i,s.id,false,{mode:s.mode,source});
+      return;
+    }
   }
   await i.deferReply({flags:MessageFlags.Ephemeral});
   if(action==='status'){await i.editReply(modeUserStatus(s,i.user.id));return;}
