@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createGeneralSession,joinGeneralSession,editGeneralApplicant,
   leaveGeneralSession,orderedGeneralApplicants,generalGroups,generalPosition,
-  closeGeneralSession,
+  closeGeneralSession,confirmGeneralSession,unconfirmGeneralSession,
 } from '../src/general-queue.js';
 
 const fresh=(cap=2)=>createGeneralSession('guild','channel','general-session','배틀그라운드',cap,100);
@@ -75,4 +75,41 @@ test('다른 게임 모집의 인원과 순서에 영향받지 않는다',()=>{
   joinGeneralSession(b,'b','B','닉B');
   assert.deepEqual(orderedGeneralApplicants(a).map(p=>p.id),['a']);
   assert.deepEqual(orderedGeneralApplicants(b).map(p=>p.id),['b']);
+});
+
+test('관리자 확정은 선착순 정원 내 참가자만 확정하고 신청을 잠근다',()=>{
+  const s=fresh(2);
+  joinGeneralSession(s,'a','A','닉1','',10);
+  joinGeneralSession(s,'b','B','닉2','',20);
+  joinGeneralSession(s,'c','C','닉3','',30);
+  const selected=confirmGeneralSession(s,40);
+  assert.deepEqual(selected.map(p=>p.id),['a','b']);
+  assert.equal(s.status,'confirmed');
+  assert.equal(s.confirmedAt,40);
+  assert.deepEqual(generalGroups(s).waiting.map(p=>p.id),['c']);
+  assert.throws(()=>confirmGeneralSession(s),/이미 명단이 확정/);
+  assert.throws(()=>joinGeneralSession(s,'d','D','닉4'),/이미 명단이 확정/);
+  assert.throws(()=>editGeneralApplicant(s,'a','A','수정'),/이미 명단이 확정/);
+  assert.throws(()=>leaveGeneralSession(s,'a'),/이미 명단이 확정/);
+  closeGeneralSession(s,50);
+  assert.equal(s.status,'closed');
+  assert.equal(s.confirmedAt,40);
+});
+test('관리자는 확정 취소 뒤 기존 선착순 순서 그대로 모집을 재개한다',()=>{
+  const s=fresh(1);
+  joinGeneralSession(s,'a','A','닉1');
+  joinGeneralSession(s,'b','B','닉2');
+  confirmGeneralSession(s,10);
+  unconfirmGeneralSession(s);
+  assert.equal(s.status,'open');
+  assert.equal(s.confirmedAt,null);
+  assert.deepEqual(orderedGeneralApplicants(s).map(p=>p.id),['a','b']);
+  leaveGeneralSession(s,'a');
+  assert.deepEqual(generalGroups(s).confirmed.map(p=>p.id),['b']);
+  assert.throws(()=>unconfirmGeneralSession(s),/확정된/);
+});
+test('확정 버튼은 신청자가 한 명도 없을 때 막는다',()=>{
+  const s=fresh();
+  assert.throws(()=>confirmGeneralSession(s),/신청자가 없어/);
+  assert.equal(s.status,'open');
 });
