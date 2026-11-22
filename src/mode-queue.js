@@ -46,7 +46,6 @@ export function approveSolo(s,userId) {
   p.approval='approved';return p;
 }
 export function pendingSolo(s) {
-  assertOpen(s);
   return s.mode==='solo'?s.waiting.filter(p=>p.approval!=='approved'):[];
 }
 export function eligibleModePlayers(s) {
