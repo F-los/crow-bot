@@ -4,7 +4,7 @@ import {getGuild, persist} from './store.js';
 import {
   MODE_META,TICKET_SOURCES,createModeSession,joinModeQueue,leaveModeQueue,
   removeModePlayer,approveSolo,pendingSolo,eligibleModePlayers,
-  startModeGame,finishModeGame,closeModeSession,modeUserStatus,
+  startModeGame,finishModeGame,cancelFlexConfirmation,closeModeSession,modeUserStatus,
   priorityFlexPlayers,flexRecords,adjustFlexMatches,missingModeProfiles
 } from './mode-queue.js';
 import {renderModeBoard} from './mode-render.js';
@@ -85,6 +85,9 @@ async function perform(s,action,userId,client,source=null,name=null) {
   }else if(action==='finish') {
     const done=finishModeGame(s);
     notice=`🏁 **${s.round}판 게임 종료** · ${done.length}명 자동 제외. 다른 대기자는 그대로 유지됩니다.`;
+  }else if(action==='unconfirm') {
+    cancelFlexConfirmation(s);
+    notice='🔓 **자랭 팀 확정을 취소했습니다.** 4명은 기존 대기 순서로 복귀하고 확정 시 증가한 판수와 경기 기록을 되돌렸습니다.';
   }else if(action==='approve') {
     const p=approveSolo(s,userId);
     notice=`✅ <@${p.id}> 듀오 신청을 승인했습니다. (${TICKET_SOURCES[p.source]})`;
@@ -128,6 +131,10 @@ export async function handleModeCommand(i,client,requireAdmin) {
     await i.editReply(`✅ 자랭 <@${user.id}> 판수 ${delta>0?'+':''}${delta} → **${player.matchesPlayed}판**${note}`);
     return;
   }
+  if(sub==='확정취소') {
+    if(mode!=='flex')throw new Error('자랭에서만 확정 취소할 수 있습니다.');
+    await i.editReply(await perform(s,'unconfirm',i.user.id,client));return;
+  }
   if(sub==='승인') {
     const user=i.options.getUser('유저',true);
     await i.editReply(await perform(s,'approve',user.id,client));return;
@@ -168,7 +175,7 @@ export async function handleModeButton(i,client,requireAdmin) {
     return;
   }
   checkPanel(s,i,sid);
-  if(['approve','remove','count','start','finish'].includes(action))requireAdmin(i);
+  if(['approve','remove','count','start','finish','unconfirm'].includes(action))requireAdmin(i);
   if(action==='approve' || action==='remove' || action==='count') {
     await i.reply({content:action==='approve'?'승인할 듀오 참가자를 선택하세요.':action==='count'?'판수를 변경할 자랭 참가자를 선택하세요.':'대기열에서 제외할 사람을 선택하세요.',
       components:[queueSelect(s,action)],flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
@@ -195,7 +202,7 @@ export async function handleModeButton(i,client,requireAdmin) {
     if(s.mode==='flex' && source)throw new Error('자랭은 무료 시참으로 신청해주세요.');
     await i.editReply(await perform(s,'join',i.user.id,client,source,displayName(i)));return;
   }
-  if(['leave','start','finish'].includes(action)) {
+  if(['leave','start','finish','unconfirm'].includes(action)) {
     await i.editReply(await perform(s,action,i.user.id,client));return;
   }
   throw new Error('알 수 없는 버튼입니다.');
