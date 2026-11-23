@@ -126,7 +126,7 @@ export function startModeGame(s,now=Date.now()) {
   const selected=eligible.slice(0,capacity);
   // 팀 확정 취소 시 수동 판수 조정값과 기존 신청 순서를 정확히 복원한다.
   const rollback=s.mode==='flex'?{
-    waitingOrder:s.waiting.map(p=>p.id),
+    waitingOrder:s.waiting.map(p=>({id:p.id,joinedAt:p.joinedAt})),
     records:Object.fromEntries(selected.map(p=>{
       const previous=flexRecords(s)[p.id];
       return [p.id,previous?{...previous}:null];
@@ -162,9 +162,10 @@ export function cancelFlexConfirmation(s) {
   const originalOrder=last.rollback?.waitingOrder;
   const restored=[...s.waiting,...selected];
   if(Array.isArray(originalOrder)) {
-    const order=new Map(originalOrder.map((id,index)=>[id,index]));
-    // 팀 확정 이후 새로 신청한 사람은 기존 대기자들 뒤에 유지한다.
-    s.waiting=restored.sort((a,b)=>(order.get(a.id)??Infinity)-(order.get(b.id)??Infinity));
+    const key=p=>`${p.id}:${p.joinedAt}`;
+    const order=new Map(originalOrder.map((p,index)=>[key(p),index]));
+    // 팀 확정 뒤 취소하고 재신청한 사람은 신규 신청 순서로 유지한다.
+    s.waiting=restored.sort((a,b)=>(order.get(key(a))??Infinity)-(order.get(key(b))??Infinity));
   } else {
     // 업데이트 이전에 이미 확정된 팀을 취소하는 경우에도 대기 순서를 복구한다.
     s.waiting=restored.sort((a,b)=>(a.joinedAt??0)-(b.joinedAt??0));
