@@ -165,12 +165,14 @@ test('자랭 확정 취소는 판수·라운드·대기 순서를 되돌리고 �
   assert.deepEqual(startModeGame(session,100).map(p=>p.id),['u1','u2','u3','u4']);
   joinModeQueue(session,'u7','새 시청자',null,101);
   leaveModeQueue(session,'u6');
+  leaveModeQueue(session,'u5');
+  joinModeQueue(session,'u5','재신청',null,102);
   assert.deepEqual(cancelFlexConfirmation(session).map(p=>p.id),['u1','u2','u3','u4']);
   assert.equal(session.phase,'waiting');
   assert.equal(session.round,0);
   assert.equal(session.rounds.length,0);
   assert.equal(session.current.length,0);
-  assert.deepEqual(session.waiting.map(p=>p.id),['u1','u2','u3','u4','u5','u7']);
+  assert.deepEqual(session.waiting.map(p=>p.id),['u1','u2','u3','u4','u7','u5']);
   assert.deepEqual(session.waiting.slice(0,4),JSON.parse(old).slice(0,4));
   for(let i=1;i<=4;i++)assert.equal(flexRecords(session)['u'+i],undefined);
   assert.deepEqual(startModeGame(session,102).map(p=>p.id),['u1','u2','u3','u4']);
