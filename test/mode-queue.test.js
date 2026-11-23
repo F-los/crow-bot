@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createModeSession,joinModeQueue,leaveModeQueue,approveSolo,pendingSolo,
   eligibleModePlayers,startModeGame,finishModeGame,closeModeSession,modeUserStatus,
-  priorityFlexPlayers,flexRecords,adjustFlexMatches
+  priorityFlexPlayers,flexRecords,adjustFlexMatches,cancelFlexConfirmation
 } from '../src/mode-queue.js';
 
 function s(mode){return createModeSession('guild','channel','test-'+mode,mode,1);}
@@ -156,4 +156,61 @@ test('솔랭은 판수 로테이션에 영향받지 않고 기존 선착순 유�
   finishModeGame(session);
   assert.deepEqual(startModeGame(session).map(p=>p.id),['b']);
   assert.equal(session.flexRecords,undefined);
+});
+
+test('자랭 확정 취소는 판수·라운드·대기 순서를 되돌리고 신규 신청자는 유지한다',()=>{
+  const session=s('flex');
+  for(let i=1;i<=6;i++)joinModeQueue(session,'u'+i,'시청자'+i,null,i);
+  const old=JSON.stringify(session.waiting);
+  assert.deepEqual(startModeGame(session,100).map(p=>p.id),['u1','u2','u3','u4']);
+  joinModeQueue(session,'u7','새 시청자',null,101);
+  leaveModeQueue(session,'u6');
+  assert.deepEqual(cancelFlexConfirmation(session).map(p=>p.id),['u1','u2','u3','u4']);
+  assert.equal(session.phase,'waiting');
+  assert.equal(session.round,0);
+  assert.equal(session.rounds.length,0);
+  assert.equal(session.current.length,0);
+  assert.deepEqual(session.waiting.map(p=>p.id),['u1','u2','u3','u4','u5','u7']);
+  assert.deepEqual(session.waiting.slice(0,4),JSON.parse(old).slice(0,4));
+  for(let i=1;i<=4;i++)assert.equal(flexRecords(session)['u'+i],undefined);
+  assert.deepEqual(startModeGame(session,102).map(p=>p.id),['u1','u2','u3','u4']);
+});
+test('자랭 확정 취소는 과거 판수와 마지막 참가 판수를 복원한다',()=>{
+  const session=s('flex');
+  for(let i=1;i<=4;i++)joinModeQueue(session,'u'+i,'시청자',null,i);
+  startModeGame(session,100);
+  finishModeGame(session,101);
+  for(let i=1;i<=4;i++)joinModeQueue(session,'u'+i,'시청자',null,200+i);
+  adjustFlexMatches(session,'u1',2);
+  const previous={...flexRecords(session).u1};
+  startModeGame(session,300);
+  assert.equal(flexRecords(session).u1.matchesPlayed,4);
+  cancelFlexConfirmation(session);
+  assert.deepEqual(flexRecords(session).u1,previous);
+  assert.equal(session.round,1);
+  assert.equal(session.rounds.length,1);
+  assert.equal(session.rounds[0].endedAt,101);
+});
+test('자랭 확정 취소는 진행 중인 확정만 허용하며 솔랭에는 영향이 없다',()=>{
+  const flex=s('flex');
+  assert.throws(()=>cancelFlexConfirmation(flex),/확정 명단/);
+  for(let i=1;i<=4;i++)joinModeQueue(flex,'u'+i,'참가자');
+  startModeGame(flex);
+  finishModeGame(flex);
+  assert.throws(()=>cancelFlexConfirmation(flex),/확정 명단/);
+  const solo=s('solo');
+  joinModeQueue(solo,'a','신청자','donation');
+  approveSolo(solo,'a');
+  startModeGame(solo);
+  assert.throws(()=>cancelFlexConfirmation(solo),/자랭에서만/);
+});
+test('업데이트 전 자랭 진행 중 확정도 1판만 되돌린다',()=>{
+  const flex=s('flex');
+  for(let i=1;i<=4;i++)joinModeQueue(flex,'u'+i,'시청자',null,i);
+  startModeGame(flex,100);
+  delete flex.rounds[0].rollback; // 구버전 진행 상태
+  cancelFlexConfirmation(flex);
+  assert.equal(flex.round,0);
+  assert.deepEqual(flex.waiting.map(p=>p.id),['u1','u2','u3','u4']);
+  for(let i=1;i<=4;i++)assert.equal(flexRecords(flex)['u'+i].matchesPlayed,0);
 });
