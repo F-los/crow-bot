@@ -64,6 +64,7 @@ export function renderModeBoard(session) {
     ...(solo?[button(`${key}:approve:${sid}`,'승인 관리',ButtonStyle.Secondary,closed)]:[]),
     button(`${key}:start:${sid}`,solo?'듀오 시작':'팀 확정',ButtonStyle.Primary,closed||playing),
     button(`${key}:finish:${sid}`,'게임 종료',ButtonStyle.Danger,closed||!playing),
+    ...(!solo?[button(`${key}:unconfirm:${sid}`,'확정 취소',ButtonStyle.Secondary,closed||!playing)]:[]),
     button(`${key}:remove:${sid}`,'인원 제외',ButtonStyle.Secondary,closed),
     ...(!solo?[button(`${key}:count:${sid}`,'판수 변경',ButtonStyle.Secondary,closed)]:[]),
   ];
