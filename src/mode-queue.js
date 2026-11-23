@@ -124,6 +124,14 @@ export function startModeGame(s,now=Date.now()) {
     throw new Error(msg);
   }
   const selected=eligible.slice(0,capacity);
+  // 팀 확정 취소 시 수동 판수 조정값과 기존 신청 순서를 정확히 복원한다.
+  const rollback=s.mode==='flex'?{
+    waitingOrder:s.waiting.map(p=>p.id),
+    records:Object.fromEntries(selected.map(p=>{
+      const previous=flexRecords(s)[p.id];
+      return [p.id,previous?{...previous}:null];
+    })),
+  }:null;
   const selectedIds=new Set(selected.map(p=>p.id));
   s.waiting=s.waiting.filter(p=>!selectedIds.has(p.id));
   s.current=selected;
@@ -136,9 +144,51 @@ export function startModeGame(s,now=Date.now()) {
       record.lastPlayedRound=s.round;
     }
   }
-  s.rounds.push({round:s.round,players:selected.map(p=>({
+  s.rounds.push({round:s.round,...(rollback?{rollback}:{}),players:selected.map(p=>({
     ...p,...(s.mode==='flex'?{matchesPlayed:flexRecords(s)[p.id].matchesPlayed}:{})
   })),startedAt:now});
+  return selected;
+}
+/** 자랭 팀 확정만 되돌린다. 게임 종료가 기록된 판은 취소할 수 없다. */
+export function cancelFlexConfirmation(s) {
+  assertOpen(s);
+  if(s.mode!=='flex')throw new Error('자랭에서만 팀 확정을 취소할 수 있습니다.');
+  if(s.phase!=='playing')throw new Error('취소할 자랭 확정 명단이 없습니다.');
+  const last=s.rounds.at(-1);
+  if(!last || last.round!==s.round || last.endedAt!=null)
+    throw new Error('진행 중인 자랭 팀 확정 기록을 찾지 못했습니다.');
+
+  const selected=[...s.current];
+  const originalOrder=last.rollback?.waitingOrder;
+  const restored=[...s.waiting,...selected];
+  if(Array.isArray(originalOrder)) {
+    const order=new Map(originalOrder.map((id,index)=>[id,index]));
+    // 팀 확정 이후 새로 신청한 사람은 기존 대기자들 뒤에 유지한다.
+    s.waiting=restored.sort((a,b)=>(order.get(a.id)??Infinity)-(order.get(b.id)??Infinity));
+  } else {
+    // 업데이트 이전에 이미 확정된 팀을 취소하는 경우에도 대기 순서를 복구한다.
+    s.waiting=restored.sort((a,b)=>(a.joinedAt??0)-(b.joinedAt??0));
+  }
+
+  const records=flexRecords(s);
+  for(const player of selected) {
+    const before=last.rollback?.records;
+    if(before && Object.hasOwn(before,player.id)) {
+      if(before[player.id]===null)delete records[player.id];
+      else records[player.id]={...before[player.id]};
+    } else {
+      // 구버전 확정 기록에는 스냅샷이 없으므로 증가한 1판만 되돌린다.
+      const entry=records[player.id];
+      if(!entry)continue;
+      entry.matchesPlayed=Math.max(0,entry.matchesPlayed-1);
+      entry.lastPlayedRound=s.rounds.slice(0,-1).reverse()
+        .find(r=>r.players?.some(p=>p.id===player.id))?.round??0;
+    }
+  }
+  s.rounds.pop();
+  s.current=[];
+  s.phase='waiting';
+  s.round--;
   return selected;
 }
 export function finishModeGame(s,now=Date.now()) {
