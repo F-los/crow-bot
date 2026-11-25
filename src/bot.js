@@ -198,11 +198,11 @@ client.once(Events.ClientReady,async ready=>{
       console.log('✅ 종합게임 모집판 새로고침:',session.id);
     }catch(error){console.error('종합게임 모집판 재시작 갱신 실패:',error);}
   }
-  if(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_GUILD_ID){
+  if(process.env.DISCORD_CLIENT_ID){
     try{await import('./register.js');}
     catch(error){console.error('새 슬래시 명령어 자동 등록 실패:',error);}
   }else{
-    console.warn('DISCORD_CLIENT_ID / DISCORD_GUILD_ID가 없어 새 슬래시 명령어 등록을 건너뜁니다.');
+    console.warn('DISCORD_CLIENT_ID가 없어 새 슬래시 명령어 등록을 건너뜁니다.');
   }
 });
 client.on(Events.InteractionCreate,async(i)=>{

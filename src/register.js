@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { REST, Routes, SlashCommandBuilder } from 'discord.js';
+import { REST, Routes, SlashCommandBuilder, InteractionContextType, ApplicationIntegrationType } from 'discord.js';
 const {DISCORD_TOKEN,DISCORD_CLIENT_ID,DISCORD_GUILD_ID}=process.env;
-if(!DISCORD_TOKEN||!DISCORD_CLIENT_ID||!DISCORD_GUILD_ID)throw new Error('DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID 환경변수가 필요합니다.');
+if(!DISCORD_TOKEN||!DISCORD_CLIENT_ID)throw new Error('DISCORD_TOKEN, DISCORD_CLIENT_ID 환경변수가 필요합니다.');
 const command=new SlashCommandBuilder().setName('내전').setDescription('까마귀봇 v3: 스트리머 + 시청자 9명 내전 관리')
   .addSubcommand(s=>s.setName('모집').setDescription('새 내전 모집판을 만듭니다 (관리자)'))
   .addSubcommand(s=>s.setName('시작').setDescription('시청자 9명을 선발하고 1판을 시작합니다 (관리자)'))
@@ -54,5 +54,17 @@ const general = new SlashCommandBuilder().setName('종합게임').setDescription
   .addSubcommand(s=>s.setName('종료').setDescription('종합게임 모집 종료·기록 보관 (관리자)'));
 commands.push(solo,flex,general);
 const rest=new REST({version:'10'}).setToken(DISCORD_TOKEN);
-await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID,DISCORD_GUILD_ID),{body:commands.map(c=>c.toJSON())});
+const body=commands.map(c=>c.setContexts(InteractionContextType.Guild).setIntegrationTypes(ApplicationIntegrationType.GuildInstall).toJSON());
+await rest.put(Routes.applicationCommands(DISCORD_CLIENT_ID),{body});
+// 기존 단일 서버 명령어는 전역 등록 성공 후에만 정리한다.
+if(DISCORD_GUILD_ID){
+  try{
+    const old=await rest.get(Routes.applicationGuildCommands(DISCORD_CLIENT_ID,DISCORD_GUILD_ID));
+    const names=new Set(body.map(c=>c.name));
+    for(const command of old){
+      if(command.type===1 && names.has(command.name))
+        await rest.delete(Routes.applicationGuildCommand(DISCORD_CLIENT_ID,DISCORD_GUILD_ID,command.id));
+    }
+  }catch(error){console.warn('기존 길드 명령어 정리 실패:',error);}
+}
 console.log('✅ 까마귀봇 v4 /내전, /내전등록, /내전수정, /내전정보, /솔랭, /자랭, /종합게임 명령어 등록 완료');

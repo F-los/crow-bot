@@ -151,7 +151,7 @@ v3의 롤 5:5 내전 기능을 유지하면서, **솔랭 유료 듀오(선착순
 
 1. **Bot-Hosting의 `data/state.json`과 `data/profiles.sqlite`을 먼저 백업**. 이 파일들은 GitHub가 아닌 실행 서버에 남아 있어야 함
 2. `main`에 v4 병합 시 기존 배포 절차대로 갱신. Node.js 22.13+ 또는 24 권장, 기존 시작 파일 `src/bot.js` 유지
-3. DISCORD_TOKEN / DISCORD_CLIENT_ID / DISCORD_GUILD_ID 환경변수를 유지하고 봇 재시작 (시작 시 길드 슬래시 명령어 자동 등록)
+3. DISCORD_TOKEN / DISCORD_CLIENT_ID 환경변수를 유지하고 봇 재시작 (시작 시 전역 슬래시 명령어 자동 등록). 기존 DISCORD_GUILD_ID는 이전 길드 명령어 정리용으로 유지 가능
 4. `npm test` 실행 및 Discord에서 **미등록자 모달→자동 참가**, 기존 등록자 즉시 신청, 솔랭 후원·룰렛 승인, 자랭 판수 로테이션·재신청, 내전 참가·시작·종료 동작 점검
 
 ---
@@ -193,9 +193,9 @@ npm test
 npm start
 ```
 
-`npm start` 시 DISCORD_CLIENT_ID와 DISCORD_GUILD_ID가 있으면 새 슬래시 명령어를 자동으로 갱신합니다. 환경변수가 없거나 등록에 실패한 경우에는 `npm run register`로 수동 등록해야 합니다.
+`npm start` 시 DISCORD_CLIENT_ID가 있으면 모든 초대 서버에서 사용하는 전역 슬래시 명령어를 자동으로 갱신합니다. 환경변수가 없거나 등록에 실패한 경우에는 `npm run register`로 수동 등록해야 합니다.
 
-`.env`에는 기존대로 `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`를 설정합니다.
+`.env`에는 `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`를 설정합니다. 기존 `DISCORD_GUILD_ID`는 이전 길드 명령어 정리용으로만 선택적으로 사용합니다. 새 서버는 봇과 applications.commands 권한으로 초대하면 됩니다.
 
 ## 게임 시작 처리 주의
 
